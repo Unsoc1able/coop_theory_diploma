@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import List
 
-from dash import Input, Output, State, callback, dcc, html
-import dash_table
+import dash
+from dash import Input, Output, State, callback, dcc, dash_table, html
 
 from ..logic import coalition_savings, core_check, expected_budget, shapley_values
 
@@ -19,11 +19,21 @@ layout = html.Div(
             [
                 html.H2("Кооперация и распределение экономии"),
                 html.P(
-                    "Выберите от 2 до 7 компаний, чтобы рассчитать распределение экономии по Шепли.",
+                    "На этой странице оцениваем экономию большой коалиции и распределение по Шепли.",
                     className="note",
                 ),
-                dcc.Dropdown(id="coop-selection", multi=True),
-                html.Button("Рассчитать", id="btn-calc-coop", className="nav-link", n_clicks=0),
+                html.Div(
+                    [
+                        dcc.Dropdown(id="coop-selection", multi=True, className="flex-grow"),
+                        html.Button(
+                            "Рассчитать",
+                            id="btn-calc-coop",
+                            className="nav-link",
+                            n_clicks=0,
+                        ),
+                    ],
+                    className="flex-row",
+                ),
                 html.Div(id="coop-summary", className="note", style={"marginTop": "12px"}),
                 dash_table.DataTable(
                     id="coop-table",
@@ -34,7 +44,7 @@ layout = html.Div(
                         {"name": "Новый бюджет, млн $", "id": "new_budget"},
                     ],
                     style_cell={"fontSize": 13},
-                    style_header={"fontWeight": "600"},
+                    style_header={"fontWeight": "600", "color": "#111827"},
                     style_table={"marginTop": "12px"},
                 ),
             ],
@@ -89,15 +99,15 @@ def compute_cooperation(_, selected, companies, params):
         rows.append(
             {
                 "player": player,
-                "solo": round(solo_budget, 2),
-                "shapley": round(share, 2),
-                "new_budget": round(solo_budget - share, 2),
+                "solo": int(round(solo_budget)),
+                "shapley": int(round(share)),
+                "new_budget": int(round(solo_budget - share)),
             }
         )
 
     summary = html.Span(
         [
-            f"Экономия большой коалиции v(N): {savings:,.2f} млн $. ",
+            f"Экономия большой коалиции v(N): {int(round(savings)):,} млн $. ".replace(",", " "),
             html.Span(
                 "Шепли в ядре" if is_core else "Шепли вне ядра",
                 className="ok" if is_core else "warn",

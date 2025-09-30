@@ -5,4 +5,4 @@ from . import app, create_app
 
 if __name__ == "__main__":
     dash_app = app or create_app()
-    dash_app.run_server(debug=True)
+    dash_app.run(debug=True, host="0.0.0.0")
