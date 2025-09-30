@@ -5,8 +5,8 @@ from __future__ import annotations
 import math
 from typing import Dict, List
 
-from dash import Input, Output, State, callback, ctx, dcc, html
-import dash_table
+import dash
+from dash import Input, Output, State, callback, ctx, dcc, dash_table, html
 import plotly.express as px
 
 from ..data import PARAMETER_PRESETS
@@ -98,30 +98,64 @@ PARAMETERS: List[Dict[str, object]] = [
     },
 ]
 
+PARAMETER_LOOKUP = {param["field"]: param for param in PARAMETERS}
+PARAMETER_ROWS: List[List[Dict[str, object]]] = [
+    [PARAMETER_LOOKUP[field] for field in ("p1", "p2", "p3")],
+    [PARAMETER_LOOKUP[field] for field in ("C_I", "C_II", "C_III", "C_REG")],
+    [
+        param
+        for param in PARAMETERS
+        if param["field"]
+        not in {"p1", "p2", "p3", "C_I", "C_II", "C_III", "C_REG"}
+    ],
+]
+
 
 layout = html.Div(
     [
         html.Div(
             [
                 html.H2("1) Параметры модели"),
+                html.P(
+                    "Настройте вероятности, бюджеты и параметры кооперации перед расчётами.",
+                    className="note",
+                ),
                 html.Div(
                     [
                         html.Div(
                             [
-                                html.Label(param["label"]),
-                                dcc.Slider(
-                                    id=f"slider-{param['field']}",
-                                    min=param["min"],
-                                    max=param["max"],
-                                    step=param["step"],
-                                ),
-                                html.Div(id=f"display-{param['field']}", className="note"),
+                                html.Div(
+                                    [
+                                        html.Label(param["label"]),
+                                        dcc.Slider(
+                                            id=f"slider-{param['field']}",
+                                            min=param["min"],
+                                            max=param["max"],
+                                            step=param["step"],
+                                            marks={
+                                                param["min"]: param["format"].format(
+                                                    param["min"]
+                                                ),
+                                                param["max"]: param["format"].format(
+                                                    param["max"]
+                                                ),
+                                            },
+                                            tooltip={"placement": "bottom", "always_visible": False},
+                                        ),
+                                        html.Div(
+                                            id=f"display-{param['field']}",
+                                            className="note",
+                                        ),
+                                    ],
+                                    className="slider-card",
+                                )
+                                for param in row
                             ],
-                            className="section-card",
+                            className="controls-row",
                         )
-                        for param in PARAMETERS
+                        for row in PARAMETER_ROWS
                     ],
-                    className="controls-grid",
+                    className="controls-stack",
                 ),
                 html.Div(
                     [
@@ -151,10 +185,14 @@ layout = html.Div(
         html.Div(
             [
                 html.H2("2) Компании и портфели"),
+                html.P(
+                    "Редактируйте состав портфелей: меняйте числа проектов, переименовывайте и удаляйте компании.",
+                    className="note",
+                ),
                 dash_table.DataTable(
                     id="companies-table",
                     columns=[
-                        {"name": "Компания", "id": "name", "presentation": "markdown", "editable": False},
+                        {"name": "Компания", "id": "name", "editable": True},
                         {"name": "Фаза I", "id": "n_I", "type": "numeric", "editable": True},
                         {"name": "Фаза II", "id": "n_II", "type": "numeric", "editable": True},
                         {"name": "Фаза III", "id": "n_III", "type": "numeric", "editable": True},
@@ -163,9 +201,10 @@ layout = html.Div(
                         {"name": "Средняя стоимость за одобрение, млн $", "id": "unit_cost", "editable": False},
                     ],
                     editable=True,
+                    row_deletable=True,
                     style_table={"overflowX": "auto"},
                     style_cell={"fontSize": 13},
-                    style_header={"fontWeight": "600"},
+                    style_header={"fontWeight": "600", "color": "#111827"},
                 ),
                 html.Div(
                     [
@@ -207,6 +246,10 @@ layout = html.Div(
         html.Div(
             [
                 html.H2("3) Графики"),
+                html.P(
+                    "Сравните компании по ожидаемым одобрениям, бюджетам и стоимости одного успеха.",
+                    className="note",
+                ),
                 html.Div(
                     [
                         dcc.Graph(id="graph-approvals"),
@@ -222,6 +265,10 @@ layout = html.Div(
         html.Div(
             [
                 html.H2("4) Краткие выводы"),
+                html.P(
+                    "Набор ключевых показателей помогает быстро оценить масштаб портфеля.",
+                    className="note",
+                ),
                 html.Div(
                     [
                         html.Div(
@@ -318,8 +365,9 @@ def update_companies(table_data, add_clicks, name, n_i, n_ii, n_iii, current):
     triggered = ctx.triggered_id
 
     if triggered == "btn-add-company":
+        cleaned_name = (name or "NewCo").strip() or "NewCo"
         new_entry = {
-            "name": name.strip() if name else "NewCo",
+            "name": cleaned_name,
             "n_I": max(0, int(n_i or 0)),
             "n_II": max(0, int(n_ii or 0)),
             "n_III": max(0, int(n_iii or 0)),
@@ -332,11 +380,19 @@ def update_companies(table_data, add_clicks, name, n_i, n_ii, n_iii, current):
         for row in table_data:
             cleaned.append(
                 {
-                    "name": row.get("name", ""),
+                    "name": (row.get("name") or "").strip() or "Компания",
                     "n_I": max(0, int(row.get("n_I", 0) or 0)),
                     "n_II": max(0, int(row.get("n_II", 0) or 0)),
                     "n_III": max(0, int(row.get("n_III", 0) or 0)),
                 }
+            )
+        if cleaned == (current or []):
+            return (
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
             )
         return cleaned, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
@@ -370,8 +426,12 @@ def refresh_metrics(companies, params):
             {
                 **row,
                 "approvals": round(row["approvals"], 2),
-                "budget": round(row["budget"], 2),
-                "unit_cost": round(row["unit_cost"], 2) if not math.isnan(row["unit_cost"]) else None,
+                "budget": int(round(row["budget"])),
+                "unit_cost": (
+                    int(round(row["unit_cost"]))
+                    if not math.isnan(row["unit_cost"])
+                    else None
+                ),
             }
         )
 
@@ -388,11 +448,17 @@ def refresh_metrics(companies, params):
             orientation="h",
             labels={"x": title, "y": "Компания"},
         )
-        fig.update_layout(margin=dict(l=10, r=10, t=30, b=10), height=320)
+        fig.update_layout(
+            template="plotly_white",
+            margin=dict(l=10, r=10, t=30, b=10),
+            height=320,
+        )
+        fig.update_xaxes(title_text=title)
+        fig.update_yaxes(title_text="Компания")
         figures.append(fig)
 
     approvals_fmt = f"{approvals_sum:,.2f}".replace(",", " ")
-    budget_fmt = f"{budget_sum:,.2f}".replace(",", " ")
+    budget_fmt = f"{int(round(budget_sum)):,}".replace(",", " ")
 
     return (
         table_data,
