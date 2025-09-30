@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<title>Кооперативная модель R&amp;D — интерактив</title>
+<style>
+  :root {
+    --maxw: 1100px;
+    --gap: 12px;
+    --pad: 14px;
+    --muted:#6b7280;
+    --border:#e5e7eb;
+    --bg:#fafafa;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+         line-height: 1.45; margin: 0; background:#fff; color:#111827; }
+  header { padding: 18px 20px; border-bottom:1px solid var(--border); background:white; position: sticky; top:0; z-index:10; }
+  main { max-width: var(--maxw); margin: 0 auto; padding: 18px 20px 36px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 18px; margin-top: 24px; }
+  h3 { font-size: 16px; margin-top: 18px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+  .card { border:1px solid var(--border); background:white; border-radius: 10px; padding: var(--pad); }
+  .note { color: var(--muted); font-size: 13px; }
+  .controls { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 14px; }
+  label { font-size: 13px; color:#374151; display:block; }
+  input[type="range"] { width: 100%; }
+  .val { min-width: 64px; text-align:right; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow:auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border:1px solid var(--border); padding: 6px 8px; text-align: left; }
+  th { background: var(--bg); position: sticky; top: 0; z-index: 1; }
+  .charts { display:grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
+  .chart { border:1px solid var(--border); background:white; border-radius: 10px; padding: 8px; }
+  .bar { height: 14px; background: #3b82f6; }
+  .barwrap { background:#eef2ff; height: 14px; width:100%; }
+  .xtitle { font-size: 13px; color:#111; margin-bottom:6px; }
+  .xaxis { display:flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .kpis { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--gap); }
+  .kpi { border:1px solid var(--border); background:white; border-radius:10px; padding: var(--pad); }
+  .kpi .num { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .small { font-size: 11px; color: var(--muted); }
+  .flex { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+  .btn { appearance: none; border:1px solid #cbd5e1; background:#f8fafc; color:#111; border-radius:8px; padding:6px 10px; cursor:pointer; font-size:13px; }
+  .btn:hover { background:#eef2ff; }
+  .warn { color:#b45309; }
+  .ok { color:#15803d; }
+  .sep { height:1px; background:var(--border); margin: 12px 0; }
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; }
+    .charts { grid-template-columns: 1fr; }
+    .kpis { grid-template-columns: 1fr; }
+    .controls { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Кооперативная модель R&amp;D — интерактивный дашборд</h1>
+  <div class="note">Пофазные вероятности/затраты, сравнение множества компаний, кооперация (Шепли + ядро). Без внешних библиотек.</div>
+</header>
+<main>
+  <div class="grid">
+    <section class="card">
+      <h2>1) Параметры модели</h2>
+      <div class="controls">
+        <div>
+          <label>Вероятность успеха фазы I (p1): <span id="v_p1" class="val">0.47</span></label>
+          <input type="range" min="0" max="1" step="0.01" value="0.47" id="p1"/>
+        </div>
+        <div>
+          <label>Вероятность успеха фазы II (p2): <span id="v_p2" class="val">0.28</span></label>
+          <input type="range" min="0" max="1" step="0.01" value="0.28" id="p2"/>
+        </div>
+        <div>
+          <label>Вероятность успеха фазы III (p3): <span id="v_p3" class="val">0.55</span></label>
+          <input type="range" min="0" max="1" step="0.01" value="0.55" id="p3"/>
+        </div>
+        <div>
+          <label>Стоимость фазы I (млн $): <span id="v_CI" class="val">25</span></label>
+          <input type="range" min="0" max="100" step="1" value="25" id="C_I"/>
+        </div>
+        <div>
+          <label>Стоимость фазы II (млн $): <span id="v_CII" class="val">60</span></label>
+          <input type="range" min="0" max="200" step="1" value="60" id="C_II"/>
+        </div>
+        <div>
+          <label>Стоимость фазы III (млн $): <span id="v_CIII" class="val">350</span></label>
+          <input type="range" min="0" max="800" step="5" value="350" id="C_III"/>
+        </div>
+        <div>
+          <label>Регистрация (млн $): <span id="v_CREG" class="val">3</span></label>
+          <input type="range" min="0" max="20" step="1" value="3" id="C_REG"/>
+        </div>
+        <div>
+          <label>Кооперация: снижение C<sub>III</sub> (%) <span id="v_c3r" class="val">20%</span></label>
+          <input type="range" min="0" max="60" step="1" value="20" id="coop_c3_reduction"/>
+        </div>
+        <div>
+          <label>Кооперация: прирост p3 (+) <span id="v_dp3" class="val">0.05</span></label>
+          <input type="range" min="0" max="0.2" step="0.01" value="0.05" id="coop_dp3"/>
+        </div>
+        <div>
+          <label>Ограничение p3 в кооперации (max): <span id="v_p3cap" class="val">0.70</span></label>
+          <input type="range" min="0.5" max="0.95" step="0.01" value="0.70" id="coop_p3_cap"/>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="flex">
+        <button class="btn" id="btn_fill_avg">Заполнить параметрами из базы (средние оценки)</button>
+        <button class="btn" id="btn_fill_ru">Российские ориентиры (дешевле фаза III)</button>
+      </div>
+      <div class="note small" style="margin-top:8px;">Перетаскивайте ползунки — таблица и графики пересчитываются мгновенно.</div>
+    </section>
+
+    <section class="card">
+      <h2>2) Компании и портфели</h2>
+      <div class="table-wrap">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Компания</th>
+              <th>Фаза I</th>
+              <th>Фаза II</th>
+              <th>Фаза III</th>
+              <th>Ожидаемые одобрения</th>
+              <th>Ожидаемый бюджет, млн $</th>
+              <th>Средняя стоимость за одобрение, млн $</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="flex" style="margin-top:10px;">
+        <input id="new_name" placeholder="Новая компания" style="padding:6px 8px; border:1px solid var(--border); border-radius:8px;"/>
+        <input id="new_i" type="number" min="0" placeholder="I" style="width:80px; padding:6px 8px; border:1px solid var(--border); border-radius:8px;"/>
+        <input id="new_ii" type="number" min="0" placeholder="II" style="width:80px; padding:6px 8px; border:1px solid var(--border); border-radius:8px;"/>
+        <input id="new_iii" type="number" min="0" placeholder="III" style="width:80px; padding:6px 8px; border:1px solid var(--border); border-radius:8px;"/>
+        <button class="btn" id="add_btn">Добавить</button>
+      </div>
+      <div class="note small">
+        Начальный набор: Pfizer, BIOCAD, Generium, R-Pharm, Pharmstandard, Geropharm, Petrovax, Valenta, Nanolek, ChemRar.
+        Можно редактировать ячейки фаз прямо в таблице (двойной клик).
+      </div>
+    </section>
+  </div>
+
+  <h2>3) Графики (уменьшенные)</h2>
+  <div class="charts" id="charts">
+    <div class="chart">
+      <div class="xtitle">Ожидаемые одобрения</div>
+      <div id="chart_approvals"></div>
+      <div class="xaxis"><span>0</span><span id="xmax1"></span></div>
+    </div>
+    <div class="chart">
+      <div class="xtitle">Ожидаемый бюджет (млн $)</div>
+      <div id="chart_budget"></div>
+      <div class="xaxis"><span>0</span><span id="xmax2"></span></div>
+    </div>
+    <div class="chart">
+      <div class="xtitle">Средняя стоимость / одобрение (млн $)</div>
+      <div id="chart_unit"></div>
+      <div class="xaxis"><span>0</span><span id="xmax3"></span></div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:14px;">
+    <section class="card">
+      <h2>4) Кооперация (выберите игроков)</h2>
+      <div class="flex">
+        <select id="coop_select" multiple size="8" style="min-width:220px; padding:6px 8px; border:1px solid var(--border); border-radius:8px;"></select>
+        <button class="btn" id="calc_coop">Рассчитать Шепли</button>
+      </div>
+      <div id="coop_out" class="small" style="margin-top:10px;"></div>
+      <div class="table-wrap" style="margin-top:8px;">
+        <table id="coop_tbl" style="display:none;">
+          <thead>
+            <tr>
+              <th>Игрок</th>
+              <th>Solo бюджет, млн $</th>
+              <th>Доля по Шепли, млн $ (экономия)</th>
+              <th>Новый бюджет (solo − доля), млн $</th>
+            </tr>
+          </thead>
+          <tbody id="coop_tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>5) Краткие выводы</h2>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="small">Всего компаний</div>
+          <div class="num" id="kpi_firms">—</div>
+        </div>
+        <div class="kpi">
+          <div class="small">Σ ожидаемых одобрений</div>
+          <div class="num" id="kpi_sumN">—</div>
+        </div>
+        <div class="kpi">
+          <div class="small">Σ бюджета (млн $)</div>
+          <div class="num" id="kpi_sumC">—</div>
+        </div>
+      </div>
+      <p class="note" style="margin-top:10px;">
+        Делёж по Шепли справедлив по маржинальному вкладу, но может не лежать в ядре — проверяйте устойчивость.
+        Расширение кооперации снижает C<sub>III</sub> и/или повышает p<sub>3</sub>, что особенно влияет на переход II→III.
+      </p>
+    </section>
+  </div>
+</main>
+
+<script>
+// ---------- Helpers ----------
+const fmt = x => x.toLocaleString('ru-RU', {maximumFractionDigits: 2});
+function el(id){ return document.getElementById(id); }
+
+// ---------- Model ----------
+function EN(port, p1, p2, p3){
+  return port.n_I*(p1*p2*p3) + port.n_II*(p2*p3) + port.n_III*(p3);
+}
+function costPerProj(phase, p1, p2, p3, C_I, C_II, C_III, C_REG){
+  if(phase==='I')  return C_I + p1*C_II + (p1*p2)*C_III + (p1*p2*p3)*C_REG;
+  if(phase==='II') return C_II + p2*C_III + (p2*p3)*C_REG;
+  if(phase==='III')return C_III + p3*C_REG;
+  return 0;
+}
+function EC(port, p1, p2, p3, C_I, C_II, C_III, C_REG){
+  return port.n_I*costPerProj('I',p1,p2,p3,C_I,C_II,C_III,C_REG)
+       + port.n_II*costPerProj('II',p1,p2,p3,C_I,C_II,C_III,C_REG)
+       + port.n_III*costPerProj('III',p1,p2,p3,C_I,C_II,C_III,C_REG);
+}
+
+// ---------- Data ----------
+let companies = [
+  {name:'Pfizer',        n_I:45, n_II:28, n_III:37},
+  {name:'BIOCAD',        n_I:15, n_II: 9, n_III:18},
+  {name:'Generium',      n_I: 7, n_II: 6, n_III: 9},
+  {name:'R-Pharm',       n_I:11, n_II: 8, n_III:12},
+  {name:'Pharmstandard', n_I: 9, n_II: 7, n_III:10},
+  {name:'Geropharm',     n_I: 5, n_II: 4, n_III: 6},
+  {name:'Petrovax',      n_I: 6, n_II: 5, n_III: 7},
+  {name:'Valenta',       n_I: 5, n_II: 4, n_III: 6},
+  {name:'Nanolek',       n_I: 6, n_II: 5, n_III: 6},
+  {name:'ChemRar',       n_I: 7, n_II: 6, n_III: 5},
+];
+
+// ---------- UI State ----------
+const sliders = {
+  p1: el('p1'), p2: el('p2'), p3: el('p3'),
+  C_I: el('C_I'), C_II: el('C_II'), C_III: el('C_III'), C_REG: el('C_REG'),
+  coop_c3_reduction: el('coop_c3_reduction'), coop_dp3: el('coop_dp3'), coop_p3_cap: el('coop_p3_cap'),
+};
+const views = {
+  v_p1: el('v_p1'), v_p2: el('v_p2'), v_p3: el('v_p3'),
+  v_CI: el('v_CI'), v_CII: el('v_CII'), v_CIII: el('v_CIII'), v_CREG: el('v_CREG'),
+  v_c3r: el('v_c3r'), v_dp3: el('v_dp3'), v_p3cap: el('v_p3cap'),
+};
+
+// ---------- Table & Charts ----------
+const tbody = el('tbody');
+
+function renderTable(){
+  tbody.innerHTML='';
+  const p1=+sliders.p1.value, p2=+sliders.p2.value, p3=+sliders.p3.value;
+  const C_I=+sliders.C_I.value, C_II=+sliders.C_II.value, C_III=+sliders.C_III.value, C_REG=+sliders.C_REG.value;
+  let sumN=0, sumC=0;
+
+  companies.forEach((c)=>{
+    const n = EN(c, p1,p2,p3);
+    const e = EC(c, p1,p2,p3, C_I,C_II,C_III,C_REG);
+    sumN += n; sumC += e;
+    const tr = document.createElement('tr');
+
+    function tdEditable(val, key){
+      const td = document.createElement('td');
+      td.textContent = val;
+      if(key){
+        td.contentEditable = true;
+        td.addEventListener('blur', ()=>{
+          const v = Math.max(0, parseInt(td.textContent||'0',10)||0);
+          c[key]=v; td.textContent=v;
+          updateAll();
+        });
+      }
+      return td;
+    }
+
+    const tdName = document.createElement('td');
+    tdName.textContent = c.name;
+    tr.appendChild(tdName);
+    tr.appendChild(tdEditable(c.n_I,'n_I'));
+    tr.appendChild(tdEditable(c.n_II,'n_II'));
+    tr.appendChild(tdEditable(c.n_III,'n_III'));
+
+    const tdN = document.createElement('td'); tdN.textContent = fmt(n); tr.appendChild(tdN);
+    const tdE = document.createElement('td'); tdE.textContent = fmt(e); tr.appendChild(tdE);
+    const tdU = document.createElement('td'); tdU.textContent = n>0? fmt(e/n): '—'; tr.appendChild(tdU);
+
+    tbody.appendChild(tr);
+  });
+
+  el('kpi_firms').textContent = companies.length;
+  el('kpi_sumN').textContent = fmt(sumN);
+  el('kpi_sumC').textContent = fmt(sumC);
+
+  renderCharts();
+  renderCoopSelect();
+}
+
+function barChart(containerId, rows, valueKey){
+  const cont = el(containerId);
+  cont.innerHTML='';
+  if(rows.length===0) return 0;
+  const maxv = Math.max(...rows.map(r=>r[valueKey]||0), 1);
+  rows.forEach(r=>{
+    const wrap = document.createElement('div');
+    wrap.style.display='grid'; wrap.style.gridTemplateColumns='1fr 80px'; wrap.style.alignItems='center';
+    wrap.style.gap='8px'; wrap.style.margin='4px 0';
+    const label = document.createElement('div'); label.textContent = r.name;
+    label.style.fontSize='12px'; label.style.whiteSpace='nowrap'; label.style.overflow='hidden'; label.style.textOverflow='ellipsis';
+    const barwrap = document.createElement('div'); barwrap.className='barwrap';
+    const bar = document.createElement('div'); bar.className='bar';
+    bar.style.width = (100*(r[valueKey]/maxv)).toFixed(2)+'%';
+    barwrap.appendChild(bar);
+    wrap.appendChild(label); wrap.appendChild(barwrap);
+    cont.appendChild(wrap);
+  });
+  return maxv;
+}
+
+function renderCharts(){
+  const p1=+sliders.p1.value, p2=+sliders.p2.value, p3=+sliders.p3.value;
+  const C_I=+sliders.C_I.value, C_II=+sliders.C_II.value, C_III=+sliders.C_III.value, C_REG=+sliders.C_REG.value;
+
+  const rows = companies.map(c=> ({
+    name:c.name,
+    approvals: EN(c,p1,p2,p3),
+    budget: EC(c,p1,p2,p3,C_I,C_II,C_III,C_REG),
+  }));
+  const rows2 = rows.map(r=> ({name:r.name, unit: r.approvals>0? r.budget/r.approvals : 0}));
+
+  const m1 = barChart('chart_approvals', rows, 'approvals');
+  const m2 = barChart('chart_budget', rows, 'budget');
+  const m3 = barChart('chart_unit', rows2, 'unit');
+  el('xmax1').textContent = fmt(m1);
+  el('xmax2').textContent = fmt(m2);
+  el('xmax3').textContent = fmt(m3);
+}
+
+// ---------- Add company ----------
+el('add_btn').addEventListener('click', ()=>{
+  const name = el('new_name').value.trim() || 'NewCo';
+  const nI = Math.max(0, parseInt(el('new_i').value||'0',10)||0);
+  const nII= Math.max(0, parseInt(el('new_ii').value||'0',10)||0);
+  const nIII=Math.max(0, parseInt(el('new_iii').value||'0',10)||0);
+  companies.push({name, n_I:nI, n_II:nII, n_III:nIII});
+  el('new_name').value=''; el('new_i').value=''; el('new_ii').value=''; el('new_iii').value='';
+  updateAll();
+});
+
+// ---------- Coop (Shapley) ----------
+function permutations(arr){
+  if(arr.length<=1) return [arr.slice()];
+  const res=[];
+  arr.forEach((x,i)=>{
+    const rest = arr.slice(0,i).concat(arr.slice(i+1));
+    permutations(rest).forEach(p=> res.push([x].concat(p)));
+  });
+  return res;
+}
+
+function coalitionBudget(S, p1,p2,p3, C_I,C_II,C_III,C_REG, dp3, cap, c3red){
+  const p3eff = Math.min(cap, p3 + dp3);
+  const C3eff = C_III * (1 - c3red);
+  let ni=0, nii=0, niii=0;
+  companies.forEach(c=>{ if(S.has(c.name)){ ni+=c.n_I; nii+=c.n_II; niii+=c.n_III; } });
+  return EC({n_I:ni, n_II:nii, n_III:niii}, p1,p2,p3eff, C_I,C_II,C3eff,C_REG);
+}
+
+function soloBudget(name, p1,p2,p3,C_I,C_II,C_III,C_REG){
+  const c = companies.find(x=>x.name===name);
+  return EC(c, p1,p2,p3, C_I,C_II,C_III,C_REG);
+}
+
+function v_value(S, p1,p2,p3, C_I,C_II,C_III,C_REG, dp3, cap, c3red){
+  if(S.size===0) return 0;
+  let solo=0; S.forEach(n=> solo += soloBudget(n, p1,p2,p3,C_I,C_II,C_III,C_REG));
+  const coop = coalitionBudget(S, p1,p2,p3,C_I,C_II,C_III,C_REG, dp3, cap, c3red);
+  return solo - coop; // savings
+}
+
+function factorial(n){ let f=1; for(let i=2;i<=n;i++) f*=i; return f; }
+function shapley(players, p1,p2,p3, C_I,C_II,C_III,C_REG, dp3, cap, c3red){
+  const n = players.length;
+  const perms = permutations(players);
+  const phi = Object.fromEntries(players.map(p=>[p,0]));
+  const denom = factorial(n);
+  perms.forEach(order=>{
+    const S = new Set();
+    order.forEach(p=>{
+      const before = v_value(new Set(S), p1,p2,p3,C_I,C_II,C_III,C_REG, dp3, cap, c3red);
+      S.add(p);
+      const after = v_value(new Set(S), p1,p2,p3,C_I,C_II,C_III,C_REG, dp3, cap, c3red);
+      phi[p] += (after - before);
+    });
+  });
+  for(const k in phi) phi[k] /= denom;
+  return phi;
+}
+
+function coreCheck(phi, players, p1,p2,p3,C_I,C_II,C_III,C_REG,dp3,cap,c3red){
+  const totalPhi = Object.values(phi).reduce((a,b)=>a+b,0);
+  const grand = v_value(new Set(players), p1,p2,p3,C_I,C_II,C_III,C_REG, dp3,cap,c3red);
+  let ok = Math.abs(totalPhi - grand) < 1e-6;
+  for(let r=1;r<players.length;r++){
+    function comb(start, k, acc){
+      if(acc.length===k){
+        const S = acc.map(i=>players[i]);
+        const lhs = S.reduce((s,pp)=> s + phi[pp], 0);
+        const rhs = v_value(new Set(S), p1,p2,p3,C_I,C_II,C_III,C_REG, dp3,cap,c3red);
+        if(lhs + 1e-9 < rhs){ ok=false; }
+        return;
+      }
+      for(let i=start;i<players.length;i++) comb(i+1, k, acc.concat([i]));
+    }
+    comb(0,r,[]);
+  }
+  return {ok, grand, totalPhi};
+}
+
+function renderCoopSelect(){
+  const sel = el('coop_select'); sel.innerHTML='';
+  companies.forEach(c=>{
+    const opt = document.createElement('option');
+    opt.value = c.name; opt.textContent = c.name;
+    sel.appendChild(opt);
+  });
+}
+
+el('calc_coop').addEventListener('click', ()=>{
+  const sel = el('coop_select');
+  const chosen = Array.from(sel.selectedOptions).map(o=>o.value);
+  const out = el('coop_out');
+  const tbl = el('coop_tbl'), tb = el('coop_tbody');
+  tb.innerHTML='';
+  if(chosen.length<2 || chosen.length>7){
+    out.innerHTML = '<span class="warn">Выберите от 2 до 7 компаний для расчёта Шепли (n! растёт быстро).</span>';
+    tbl.style.display='none';
+    return;
+  }
+  const p1=+sliders.p1.value, p2=+sliders.p2.value, p3=+sliders.p3.value;
+  const C_I=+sliders.C_I.value, C_II=+sliders.C_II.value, C_III=+sliders.C_III.value, C_REG=+sliders.C_REG.value;
+  const c3red = (+sliders.coop_c3_reduction.value)/100;
+  const dp3   = +sliders.coop_dp3.value;
+  const cap   = +sliders.coop_p3_cap.value;
+
+  const phi = shapley(chosen, p1,p2,p3,C_I,C_II,C_III,C_REG, dp3, cap, c3red);
+  const check = coreCheck(phi, chosen, p1,p2,p3,C_I,C_II,C_III,C_REG, dp3, cap, c3red);
+  const grand = v_value(new Set(chosen), p1,p2,p3,C_I,C_II,C_III,C_REG, dp3, cap, c3red);
+
+  out.innerHTML = `Экономия большой коалиции v(N): <b>${fmt(grand)}</b> млн $ · ${check.ok? '<span class="ok">Шепли в ядре</span>':'<span class="warn">Шепли вне ядра</span>'}`;
+
+  chosen.forEach(name=>{
+    const solo = soloBudget(name, p1,p2,p3,C_I,C_II,C_III,C_REG);
+    const share = phi[name];
+    const tr = document.createElement('tr');
+    [name, fmt(solo), fmt(share), fmt(solo - share)].forEach(t=>{
+      const td = document.createElement('td'); td.textContent=t; tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  tbl.style.display='table';
+});
+
+// ---------- Preset buttons ----------
+el('btn_fill_avg').addEventListener('click', ()=>{
+  sliders.p1.value = 0.47; sliders.p2.value = 0.28; sliders.p3.value = 0.55;
+  sliders.C_I.value = 25; sliders.C_II.value = 60; sliders.C_III.value = 350; sliders.C_REG.value = 3;
+  sliders.coop_c3_reduction.value = 20; sliders.coop_dp3.value = 0.05; sliders.coop_p3_cap.value = 0.70;
+  updateAll();
+});
+el('btn_fill_ru').addEventListener('click', ()=>{
+  sliders.p1.value = 0.47; sliders.p2.value = 0.30; sliders.p3.value = 0.58;
+  sliders.C_I.value = 20; sliders.C_II.value = 50; sliders.C_III.value = 230; sliders.C_REG.value = 2;
+  sliders.coop_c3_reduction.value = 30; sliders.coop_dp3.value = 0.06; sliders.coop_p3_cap.value = 0.80;
+  updateAll();
+});
+
+// ---------- Wiring ----------
+function reflect(){
+  views.v_p1.textContent = (+sliders.p1.value).toFixed(2);
+  views.v_p2.textContent = (+sliders.p2.value).toFixed(2);
+  views.v_p3.textContent = (+sliders.p3.value).toFixed(2);
+  views.v_CI.textContent = (+sliders.C_I.value).toFixed(0);
+  views.v_CII.textContent= (+sliders.C_II.value).toFixed(0);
+  views.v_CIII.textContent=(+sliders.C_III.value).toFixed(0);
+  views.v_CREG.textContent=(+sliders.C_REG.value).toFixed(0);
+  views.v_c3r.textContent = (+sliders.coop_c3_reduction.value).toFixed(0)+'%';
+  views.v_dp3.textContent = (+sliders.coop_dp3.value).toFixed(2);
+  views.v_p3cap.textContent = (+sliders.coop_p3_cap.value).toFixed(2);
+}
+function updateAll(){ reflect(); renderTable(); }
+Object.values(sliders).forEach(s=> s.addEventListener('input', updateAll));
+
+// init
+function renderCoopSelect(){ const sel = el('coop_select'); sel.innerHTML=''; companies.forEach(c=>{ const o=document.createElement('option'); o.value=c.name; o.textContent=c.name; sel.appendChild(o);});}
+updateAll();
+</script>
+</body>
+</html>
