@@ -37,130 +37,23 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence
-
-try:  # pragma: no cover - runtime import resolution helper
-    if __package__:
-        from .clinical_trials_api import ClinicalTrialsClient
-    else:  # When executed as ``python data_fetch/build_clinical_trials_dataset.py``
-        from clinical_trials_api import ClinicalTrialsClient  # type: ignore
-except ImportError:  # Fallback to path manipulation when packaged import fails
-    import sys
-
-    from pathlib import Path as _Path
-
-    sys.path.append(str(_Path(__file__).resolve().parent))
-    from clinical_trials_api import ClinicalTrialsClient  # type: ignore
-
-# Fields that we will reuse.  ``Phase`` and ``OverallStatus`` are critical for
-# the R&D modelling.  Additional metadata makes the dataset more useful for
-# debugging and manual inspection.
-FIELDS = [
-    "NCTId",
-    "LeadSponsorName",
-    "CollaboratorName",
-    "Phase",
-    "OverallStatus",
-    "StudyType",
-    "Condition",
-    "EnrollmentCount",
-    "StartDate",
-    "PrimaryCompletionDate",
-    "LastUpdatePostDate",
-]
-
-# Keywords used by the API when a study does not contain a standard phase entry.
-NON_PHASE_VALUES = {
-    "EARLY_PHASE1": "Early Phase 1",
-    "NA": "Not Applicable",
-    "PHASE1_PHASE2": "Phase 1/Phase 2",
-    "PHASE2_PHASE3": "Phase 2/Phase 3",
-}
+import sys
+from typing import Dict, Sequence
 
 
-def normalise_phase(value: str) -> Sequence[str]:
-    """Split compound phase labels into canonical buckets.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
 
-    The API uses strings such as ``"Phase 1|Phase 2"`` or ``"Phase 1/Phase 2"``
-    to represent studies that span multiple stages.  For the dashboard we are
-    primarily interested in the aggregated counts per (I, II, III).  When a
-    multi-phase entry is detected we increment counters for each individual
-    bucket.  Non-standard values are mapped using :data:`NON_PHASE_VALUES`.
-    """
-
-    value = value.strip()
-    if not value:
-        return ()
-
-    replacements = {
-        "EARLY PHASE 1": "Early Phase 1",
-        "PHASE 1/PHASE 2": "Phase 1/Phase 2",
-        "PHASE 2/PHASE 3": "Phase 2/Phase 3",
-    }
-    value = replacements.get(value.upper(), value)
-    if value.upper() in NON_PHASE_VALUES:
-        return (NON_PHASE_VALUES[value.upper()],)
-
-    separators = ["/", "|", ","]
-    for sep in separators:
-        if sep in value:
-            return tuple(part.strip() for part in value.split(sep) if part.strip())
-    return (value,)
-
-
-def aggregate_trials(studies: Iterable[Dict[str, List[str]]]) -> Dict[str, Counter]:
-    """Aggregate per-phase and per-status statistics for the studies list."""
-
-    phase_counter: Counter[str] = Counter()
-    status_counter: Counter[str] = Counter()
-
-    for study in studies:
-        phase_values = study.get("Phase", [])
-        if phase_values:
-            for label in normalise_phase(phase_values[0]):
-                phase_counter[label] += 1
-
-        status_values = study.get("OverallStatus", [])
-        if status_values:
-            status_counter[status_values[0]] += 1
-
-    return {
-        "phase_counts": phase_counter,
-        "status_counts": status_counter,
-    }
-
-
-def build_dataset_for_sponsor(
-    client: ClinicalTrialsClient,
-    sponsor: str,
-    *,
-    max_studies: int,
-    expr_template: str,
-    batch_size: int,
-) -> Dict[str, object]:
-    """Fetch and aggregate studies for a particular sponsor."""
-
-    expr = expr_template.format(sponsor=sponsor)
-    studies: List[Dict[str, List[str]]] = []
-    for chunk in client.fetch_study_fields(
-        expr=expr,
-        fields=FIELDS,
-        batch_size=batch_size,
-        max_rank=max_studies,
-    ):
-        studies.extend(chunk.studies)
-    aggregated = aggregate_trials(studies)
-
-    return {
-        "name": sponsor,
-        "expr": expr,
-        "total_trials": len(studies),
-        "phase_counts": dict(aggregated["phase_counts"]),
-        "status_counts": dict(aggregated["status_counts"]),
-    }
+from data.parsers.clinical_trials import (
+    ClinicalTrialsBySponsorParser,
+    ClinicalTrialsExpressionParser,
+    DEFAULT_SPONSORS,
+    FIELDS,
+)
+from data.parsers.clinical_trials_api import ClinicalTrialsClient
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -217,50 +110,32 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     dataset: Dict[str, object] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "fields": FIELDS,
+        "fields": list(FIELDS),
         "sponsors": [],
     }
 
     if args.expr:
-        # Single expression mode – fetch everything matching the expression and
-        # aggregate the results as a single cohort.
-        studies: List[Dict[str, List[str]]] = []
-        for chunk in client.fetch_study_fields(
+        parser = ClinicalTrialsExpressionParser(
             expr=args.expr,
+            client=client,
             fields=FIELDS,
             batch_size=args.batch_size,
-            max_rank=args.max_studies,
-        ):
-            studies.extend(chunk.studies)
-        aggregated = aggregate_trials(studies)
-        dataset["expr"] = args.expr
-        dataset["total_trials"] = len(studies)
-        dataset["phase_counts"] = dict(aggregated["phase_counts"])
-        dataset["status_counts"] = dict(aggregated["status_counts"])
+            max_studies=args.max_studies,
+        )
+        record = parser.parse().payload["records"][0]
+        dataset.update(record)
     else:
-        sponsors = args.sponsor or [
-            "Pfizer",
-            "BIOCAD",
-            "Generium",
-            "R-Pharm",
-            "Pharmstandard",
-            "Geropharm",
-            "Petrovax",
-            "Valenta",
-            "Nanolek",
-            "ChemRar",
-        ]
-
+        sponsors = args.sponsor or list(DEFAULT_SPONSORS)
+        parser = ClinicalTrialsBySponsorParser(
+            sponsors=sponsors,
+            expr_template=args.expr_template,
+            client=client,
+            fields=FIELDS,
+            batch_size=args.batch_size,
+            max_studies=args.max_studies,
+        )
         dataset["expr_template"] = args.expr_template
-        for sponsor in sponsors:
-            sponsor_data = build_dataset_for_sponsor(
-                client,
-                sponsor,
-                max_studies=args.max_studies,
-                expr_template=args.expr_template,
-                batch_size=args.batch_size,
-            )
-            dataset["sponsors"].append(sponsor_data)
+        dataset["sponsors"] = parser.parse().payload["records"]
 
     with args.out.open("w", encoding="utf-8") as f:
         json.dump(dataset, f, ensure_ascii=False, indent=args.indent)
