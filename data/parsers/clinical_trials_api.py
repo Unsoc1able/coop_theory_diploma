@@ -80,35 +80,7 @@ class ClinicalTrialsClient:
         batch_size: int = 100,
         fmt: str = "json",
     ) -> Iterator[StudyFieldsResponse]:
-        """Stream batched ``study_fields`` responses.
-
-        Parameters
-        ----------
-        expr:
-            ClinicalTrials.gov search expression.  Example: ``"COVID-19"`` or
-            ``"AREA[LocationCountry] Russia"``.
-        fields:
-            Sequence of field names to request.
-        min_rank:
-            Starting index (1-based) of the query window.
-        max_rank:
-            Upper bound of the query window.  ``None`` means "fetch everything"
-            for the given expression.
-        batch_size:
-            Number of records returned in a single response.  The API accepts a
-            maximum of 1_000 rows per call, however smaller batches make it
-            easier to stay within the public rate limit.
-        fmt:
-            Response format.  ``json`` is recommended for downstream parsing.
-
-        Yields
-        ------
-        :class:`StudyFieldsResponse`
-            Each item contains the list of studies, the total number of studies
-            matching the expression, and the ``min_rnk`` value to use in the
-            next iteration.  Iteration stops automatically once all studies have
-            been retrieved.
-        """
+        """Stream batched ``study_fields`` responses."""
 
         current = min_rank
         while True:
