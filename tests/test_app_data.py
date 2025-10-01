@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+
 from app.data import (
     DATASET_ENV_VAR,
     SYNTHETIC_COMPANIES,
@@ -49,6 +50,7 @@ def test_load_companies_aggregates_from_sponsors(tmp_path: Path) -> None:
     result = load_companies(dataset_path)
 
     assert result == [{"name": "Example Pharma", "n_I": 3, "n_II": 4, "n_III": 5}]
+
 
 
 def test_load_companies_uses_environment_override(tmp_path: Path, monkeypatch) -> None:
