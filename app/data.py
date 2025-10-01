@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import json
+
+import os
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Sequence
 
-DATASET_PATH = Path(__file__).resolve().parents[1] / "data" / "clinical_trials_by_sponsor.json"
+DATASET_ENV_VAR = "CLINICAL_TRIALS_DATASET_PATH"
+DEFAULT_DATASET_PATH = (
+    Path(__file__).resolve().parents[1] / "data" / "clinical_trials_by_sponsor.json"
+)
+DATASET_PATH = DEFAULT_DATASET_PATH
+
 
 SYNTHETIC_COMPANIES: List[dict] = [
     {"name": "Pfizer", "n_I": 45, "n_II": 28, "n_III": 37},
@@ -112,6 +119,17 @@ def _iter_company_records(dataset: Mapping[str, Any]) -> Iterable[Mapping[str, A
                 yield _company_from_record(record)
 
 
+
+def _resolve_dataset_path(dataset_path: Path | None = None) -> Path:
+    if dataset_path is not None:
+        return Path(dataset_path)
+
+    env_value = os.getenv(DATASET_ENV_VAR)
+    if env_value:
+        return Path(env_value).expanduser()
+
+    return DEFAULT_DATASET_PATH
+  
 def load_companies(dataset_path: Path | None = None) -> List[dict]:
     """Load the latest clinical trials dataset for the dashboard.
 
@@ -121,7 +139,9 @@ def load_companies(dataset_path: Path | None = None) -> List[dict]:
     the app remains usable offline.
     """
 
-    path = Path(dataset_path or DATASET_PATH)
+
+    path = _resolve_dataset_path(dataset_path)
+
     if path.is_file():
         try:
             dataset = json.loads(path.read_text(encoding="utf-8"))
@@ -142,6 +162,8 @@ def load_companies(dataset_path: Path | None = None) -> List[dict]:
 
 
 __all__ = [
+    "DATASET_ENV_VAR",
+    "DEFAULT_DATASET_PATH",
     "DATASET_PATH",
     "SYNTHETIC_COMPANIES",
     "INITIAL_PARAMETERS",
