@@ -135,7 +135,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_studies=args.max_studies,
         )
         dataset["expr_template"] = args.expr_template
-        dataset["sponsors"] = parser.parse().payload["records"]
+        sponsors_records = parser.parse().payload["records"]
+        dataset["sponsors"] = sponsors_records
+        dataset["companies"] = [
+            {
+                "name": record.get("name", ""),
+                "n_I": int(record.get("phase_counts", {}).get("Phase 1", 0)),
+                "n_II": int(record.get("phase_counts", {}).get("Phase 2", 0)),
+                "n_III": int(record.get("phase_counts", {}).get("Phase 3", 0)),
+            }
+            for record in sponsors_records
+        ]
 
     with args.out.open("w", encoding="utf-8") as f:
         json.dump(dataset, f, ensure_ascii=False, indent=args.indent)
