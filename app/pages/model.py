@@ -9,7 +9,7 @@ import dash
 from dash import Input, Output, State, callback, ctx, dcc, dash_table, html
 import plotly.express as px
 
-from ..data import PARAMETER_PRESETS
+from ..data import MIN_TOTAL_PROJECTS, PARAMETER_PRESETS
 from ..logic import compute_company_metrics
 
 
@@ -99,15 +99,114 @@ PARAMETERS: List[Dict[str, object]] = [
 ]
 
 PARAMETER_LOOKUP = {param["field"]: param for param in PARAMETERS}
-PARAMETER_ROWS: List[List[Dict[str, object]]] = [
-    [PARAMETER_LOOKUP[field] for field in ("p1", "p2", "p3")],
-    [PARAMETER_LOOKUP[field] for field in ("C_I", "C_II", "C_III", "C_REG")],
-    [
-        param
-        for param in PARAMETERS
-        if param["field"]
-        not in {"p1", "p2", "p3", "C_I", "C_II", "C_III", "C_REG"}
-    ],
+
+# Настраиваем форматирование подсказок и подписей под минимум/максимум.
+
+PARAMETER_DESCRIPTIONS: Dict[str, str] = {
+    "p1": "Вероятность, что проект в фазе I перейдёт дальше. В расчётах ожидаемых одобрений участвует как часть произведения p1*p2*p3 для проектов в фазе I.",
+    "p2": "Вероятность успеха фазы II. Для проектов, стартующих во II фазе, ожидаемые одобрения равны n_II * p2 * p3.",
+    "p3": "Вероятность успеха фазы III. Для проектов в фазе III вклад в ожидаемые одобрения - n_III * p3, а также p3 используется при расчёте ожидаемых бюджетов.",
+    "C_I": "Базовый бюджет фазы I. Ожидаемая стоимость проекта из фазы I складывается как C_I + p1*C_II + p1*p2*C_III + p1*p2*p3*C_REG.",
+    "C_II": "Базовый бюджет фазы II. Ожидаемая стоимость проекта из фазы II: C_II + p2*C_III + p2*p3*C_REG.",
+    "C_III": "Базовый бюджет фазы III. Для проектов в фазе III ожидаемая стоимость: C_III + p3*C_REG. В кооперации эта величина уменьшается на заданный процент.",
+    "C_REG": "Регистрационные расходы, которые добавляются после успешного завершения фазы III с вероятностью p3 (или ограничением в кооперации).",
+    "coop_c3_reduction": "Процентное снижение C_III при кооперации. Итоговая стоимость третьей фазы умножается на (1 - снижение/100).",
+    "coop_dp3": "Добавка к вероятности успеха фазы III в кооперации. Значение складывается с p3, но ограничивается верхним порогом.",
+    "coop_p3_cap": "Максимально допустимое значение p3 при кооперации после учёта прироста coop_dp3.",
+}
+
+PHASE_GRID_ORDER: List[Dict[str, object]] = [
+    {"field": "p1", "column": 1, "row": 1},
+    {"field": "p2", "column": 2, "row": 1},
+    {"field": "p3", "column": 3, "row": 1},
+    {"field": "C_I", "column": 1, "row": 2},
+    {"field": "C_II", "column": 2, "row": 2},
+    {"field": "C_III", "column": 3, "row": 2},
+    {"field": "C_REG", "column": 4, "row": 2},
+]
+
+COOP_FIELDS: List[str] = ["coop_c3_reduction", "coop_dp3", "coop_p3_cap"]
+
+
+def _mark_label(param: Dict[str, object], value: float) -> str:
+    field = param["field"]
+    if field in {"C_I", "C_II", "C_III", "C_REG"}:
+        return str(int(round(value)))
+    return param["format"].format(value)
+
+
+def _build_slider_card(
+    param: Dict[str, object], *, extra_classes: str = "", style: Dict[str, object] | None = None
+):
+    field = param["field"]
+    slider_id = f"slider-{field}"
+    tooltip_target = f"tooltip-target-{field}"
+    slider = dcc.Slider(
+        id=slider_id,
+        min=param["min"],
+        max=param["max"],
+        step=param["step"],
+        marks={
+            param["min"]: _mark_label(param, param["min"]),
+            param["max"]: _mark_label(param, param["max"]),
+        },
+        tooltip={"placement": "bottom", "always_visible": True},
+    )
+
+    tooltip_text = PARAMETER_DESCRIPTIONS.get(field)
+    if tooltip_text:
+        label_content = html.Span(
+            [
+                html.Span(param["label"], className="slider-label-text"),
+                html.Span("?", id=tooltip_target, className="info-icon", tabIndex=0),
+                html.Span(tooltip_text, className="tooltip-popup"),
+            ],
+            className="slider-label-wrapper",
+        )
+        header_children = [label_content]
+    else:
+        header_children = [html.Span(param["label"], className="slider-label")]
+
+    card_children = [
+        html.Div(header_children, className="slider-header"),
+        slider,
+    ]
+
+    classes = "slider-card"
+    if extra_classes:
+        classes = f"{classes} {extra_classes}"
+
+    return html.Div(card_children, className=classes, style=style or {})
+
+
+def _build_placeholder_card(column: int) -> html.Div:
+    return html.Div(
+        className="slider-card slider-card--ghost",
+        style={"gridColumn": str(column), "gridRow": "1"},
+        **{"aria-hidden": "true"},
+    )
+
+
+def _filter_small_companies(companies: List[Dict[str, object]] | None) -> List[Dict[str, object]]:
+    companies = companies or []
+    return [
+        company
+        for company in companies
+        if company["n_I"] + company["n_II"] + company["n_III"] >= MIN_TOTAL_PROJECTS
+    ]
+
+
+PHASE_GRID_COMPONENTS = [_build_placeholder_card(column=4)] + [
+    _build_slider_card(
+        PARAMETER_LOOKUP[item["field"]],
+        style={"gridColumn": str(item["column"]), "gridRow": str(item["row"])},
+    )
+    for item in PHASE_GRID_ORDER
+]
+
+COOP_COMPONENTS = [
+    _build_slider_card(PARAMETER_LOOKUP[field])
+    for field in COOP_FIELDS
 ]
 
 
@@ -122,38 +221,8 @@ layout = html.Div(
                 ),
                 html.Div(
                     [
-                        html.Div(
-                            [
-                                html.Div(
-                                    [
-                                        html.Label(param["label"]),
-                                        dcc.Slider(
-                                            id=f"slider-{param['field']}",
-                                            min=param["min"],
-                                            max=param["max"],
-                                            step=param["step"],
-                                            marks={
-                                                param["min"]: param["format"].format(
-                                                    param["min"]
-                                                ),
-                                                param["max"]: param["format"].format(
-                                                    param["max"]
-                                                ),
-                                            },
-                                            tooltip={"placement": "bottom", "always_visible": False},
-                                        ),
-                                        html.Div(
-                                            id=f"display-{param['field']}",
-                                            className="note",
-                                        ),
-                                    ],
-                                    className="slider-card",
-                                )
-                                for param in row
-                            ],
-                            className="controls-row",
-                        )
-                        for row in PARAMETER_ROWS
+                        html.Div(PHASE_GRID_COMPONENTS, className="phase-grid"),
+                        html.Div(COOP_COMPONENTS, className="controls-row coop-row"),
                     ],
                     className="controls-stack",
                 ),
@@ -234,10 +303,6 @@ layout = html.Div(
                     ],
                     className="flex-row",
                     style={"marginTop": "12px"},
-                ),
-                html.P(
-                    "Начальный набор: Pfizer, BIOCAD, Generium, R-Pharm, Pharmstandard, Geropharm, Petrovax, Valenta, Nanolek, ChemRar.",
-                    className="note small",
                 ),
             ],
             className="section-card",
@@ -331,19 +396,16 @@ def update_parameters(*args):
 
 
 @callback(
-    [Output(f"slider-{param['field']}", "value") for param in PARAMETERS]
-    + [Output(f"display-{param['field']}", "children") for param in PARAMETERS],
+    [Output(f"slider-{param['field']}", "value") for param in PARAMETERS],
     Input("parameters-store", "data"),
 )
 def sync_sliders(params):
     params = params or {}
     values = []
-    displays = []
     for param in PARAMETERS:
         value = params.get(param["field"], param["min"])
         values.append(value)
-        displays.append(param["format"].format(value))
-    return values + displays
+    return values
 
 
 @callback(
@@ -372,7 +434,7 @@ def update_companies(table_data, add_clicks, name, n_i, n_ii, n_iii, current):
             "n_II": max(0, int(n_ii or 0)),
             "n_III": max(0, int(n_iii or 0)),
         }
-        updated = (current or []) + [new_entry]
+        updated = _filter_small_companies((current or []) + [new_entry])
         return updated, "", None, None, None
 
     if triggered == "companies-table" and table_data is not None:
@@ -386,7 +448,8 @@ def update_companies(table_data, add_clicks, name, n_i, n_ii, n_iii, current):
                     "n_III": max(0, int(row.get("n_III", 0) or 0)),
                 }
             )
-        if cleaned == (current or []):
+        filtered = _filter_small_companies(cleaned)
+        if filtered == _filter_small_companies(current):
             return (
                 dash.no_update,
                 dash.no_update,
@@ -394,7 +457,7 @@ def update_companies(table_data, add_clicks, name, n_i, n_ii, n_iii, current):
                 dash.no_update,
                 dash.no_update,
             )
-        return cleaned, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return filtered, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
@@ -411,7 +474,7 @@ def update_companies(table_data, add_clicks, name, n_i, n_ii, n_iii, current):
     Input("parameters-store", "data"),
 )
 def refresh_metrics(companies, params):
-    companies = companies or []
+    companies = _filter_small_companies(companies)
     params = params or {}
     metrics = compute_company_metrics(companies, params)
 
@@ -441,8 +504,17 @@ def refresh_metrics(companies, params):
         ("budget", "Ожидаемый бюджет (млн $)"),
         ("unit_cost", "Средняя стоимость / одобрение (млн $)"),
     ]:
-        fig = px.bar(
+        sorted_rows = sorted(
             metrics,
+            key=lambda row: (
+                row[column]
+                if row[column] is not None and not math.isnan(row[column])
+                else float("-inf")
+            ),
+            reverse=True,
+        )
+        fig = px.bar(
+            sorted_rows,
             x=column,
             y="name",
             orientation="h",
@@ -450,11 +522,23 @@ def refresh_metrics(companies, params):
         )
         fig.update_layout(
             template="plotly_white",
-            margin=dict(l=10, r=10, t=30, b=10),
-            height=320,
+            margin=dict(l=20, r=20, t=50, b=90),
+            height=380,
         )
-        fig.update_xaxes(title_text=title)
-        fig.update_yaxes(title_text="Компания")
+        fig.update_xaxes(title_text=title, automargin=True)
+        fig.update_yaxes(title_text="Компания", automargin=True)
+        if column == "unit_cost":
+            values = [
+                row[column]
+                for row in sorted_rows
+                if row[column] is not None and not math.isnan(row[column])
+            ]
+            if values:
+                upper = max(values)
+                lower = 700
+                if upper <= lower:
+                    upper = lower + 100
+                fig.update_xaxes(range=[lower, upper * 1.1])
         figures.append(fig)
 
     approvals_fmt = f"{approvals_sum:,.2f}".replace(",", " ")

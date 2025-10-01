@@ -15,6 +15,9 @@ DEFAULT_DATASET_PATH = (
 DATASET_PATH = DEFAULT_DATASET_PATH
 
 
+MIN_TOTAL_PROJECTS = 20
+
+
 SYNTHETIC_COMPANIES: List[dict] = [
     {"name": "Pfizer", "n_I": 45, "n_II": 28, "n_III": 37},
     {"name": "BIOCAD", "n_I": 15, "n_II": 9, "n_III": 18},
@@ -28,6 +31,9 @@ SYNTHETIC_COMPANIES: List[dict] = [
     {"name": "ChemRar", "n_I": 7, "n_II": 6, "n_III": 5},
 ]
 # Исходные синтетические данные, использовавшиеся на раннем этапе разработки.
+
+# Порог отсечения портфелей с малым числом проектов по всем фазам.
+
 
 INITIAL_PARAMETERS = {
     "p1": 0.47,
@@ -129,7 +135,17 @@ def _resolve_dataset_path(dataset_path: Path | None = None) -> Path:
         return Path(env_value).expanduser()
 
     return DEFAULT_DATASET_PATH
-  
+
+def _filter_small_portfolios(companies: List[dict]) -> List[dict]:
+    """Remove companies with too few projects across all phases."""
+
+    return [
+        company
+        for company in companies
+        if company["n_I"] + company["n_II"] + company["n_III"] >= MIN_TOTAL_PROJECTS
+    ]
+
+
 def load_companies(dataset_path: Path | None = None) -> List[dict]:
     """Load the latest clinical trials dataset for the dashboard.
 
@@ -155,16 +171,18 @@ def load_companies(dataset_path: Path | None = None) -> List[dict]:
                     companies.append(_normalise_company(record))
                 except ValueError:
                     continue
-            if companies:
-                return companies
+            filtered = _filter_small_portfolios(companies)
+            if filtered:
+                return filtered
 
-    return SYNTHETIC_COMPANIES
+    return _filter_small_portfolios(SYNTHETIC_COMPANIES)
 
 
 __all__ = [
     "DATASET_ENV_VAR",
     "DEFAULT_DATASET_PATH",
     "DATASET_PATH",
+    "MIN_TOTAL_PROJECTS",
     "SYNTHETIC_COMPANIES",
     "INITIAL_PARAMETERS",
     "PARAMETER_PRESETS",

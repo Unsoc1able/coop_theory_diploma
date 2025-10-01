@@ -1,0 +1,516 @@
+{
+  "generated_at": "2025-10-01T20:02:20.752976+00:00",
+  "fields": [
+    "NCTId",
+    "LeadSponsorName",
+    "CollaboratorName",
+    "Phase",
+    "OverallStatus",
+    "StudyType",
+    "Condition",
+    "EnrollmentCount",
+    "StartDate",
+    "PrimaryCompletionDate",
+    "LastUpdatePostDate"
+  ],
+  "sponsors": [
+    {
+      "expr": "LEADSPONSOR:\"Pfizer\"",
+      "total_trials": 2000,
+      "phase_counts": {
+        "Phase 3": 408,
+        "Phase 1": 706,
+        "Phase 4": 171,
+        "Phase 2": 350,
+        "Not Applicable": 38,
+        "Early Phase 1": 1
+      },
+      "status_counts": {
+        "Completed": 1528,
+        "Terminated": 261,
+        "Active Not Recruiting": 65,
+        "No Longer Available": 8,
+        "Withdrawn": 61,
+        "Not Yet Recruiting": 8,
+        "Recruiting": 67,
+        "Approved For Marketing": 2
+      },
+      "name": "Pfizer"
+    },
+    {
+      "expr": "LEADSPONSOR:\"BIOCAD\"",
+      "total_trials": 93,
+      "phase_counts": {
+        "Phase 1": 32,
+        "Phase 3": 41,
+        "Phase 2": 19
+      },
+      "status_counts": {
+        "Active Not Recruiting": 13,
+        "Completed": 50,
+        "Unknown": 14,
+        "Recruiting": 12,
+        "Terminated": 2,
+        "Withdrawn": 2
+      },
+      "name": "BIOCAD"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Generium\"",
+      "total_trials": 29,
+      "phase_counts": {
+        "Phase 3": 13,
+        "Phase 1": 12,
+        "Phase 2": 2
+      },
+      "status_counts": {
+        "Completed": 20,
+        "Unknown": 1,
+        "Recruiting": 3,
+        "Active Not Recruiting": 4,
+        "Withdrawn": 1
+      },
+      "name": "Generium"
+    },
+    {
+      "expr": "LEADSPONSOR:\"R-Pharm\"",
+      "total_trials": 67,
+      "phase_counts": {
+        "Phase 2": 25,
+        "Phase 1": 22,
+        "Phase 3": 18
+      },
+      "status_counts": {
+        "Completed": 50,
+        "Active Not Recruiting": 4,
+        "Terminated": 5,
+        "Unknown": 2,
+        "Recruiting": 2,
+        "Suspended": 1,
+        "Withdrawn": 3
+      },
+      "name": "R-Pharm"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Pharmstandard\"",
+      "total_trials": 1,
+      "phase_counts": {
+        "Phase 4": 1
+      },
+      "status_counts": {
+        "Unknown": 1
+      },
+      "name": "Pharmstandard"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Geropharm\"",
+      "total_trials": 23,
+      "phase_counts": {
+        "Not Applicable": 10,
+        "Phase 1": 6,
+        "Phase 3": 7
+      },
+      "status_counts": {
+        "Completed": 20,
+        "Active Not Recruiting": 1,
+        "Unknown": 2
+      },
+      "name": "Geropharm"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Petrovax\"",
+      "total_trials": 14,
+      "phase_counts": {
+        "Phase 3": 5,
+        "Not Applicable": 3,
+        "Phase 2": 2
+      },
+      "status_counts": {
+        "Completed": 11,
+        "Recruiting": 1,
+        "Not Yet Recruiting": 1,
+        "Unknown": 1
+      },
+      "name": "Petrovax"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Valenta\"",
+      "total_trials": 35,
+      "phase_counts": {
+        "Phase 3": 12,
+        "Phase 4": 4,
+        "Phase 1": 9,
+        "Phase 2": 4,
+        "Not Applicable": 6
+      },
+      "status_counts": {
+        "Completed": 22,
+        "Recruiting": 12,
+        "Not Yet Recruiting": 1
+      },
+      "name": "Valenta"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Nanolek\"",
+      "total_trials": 0,
+      "phase_counts": {},
+      "status_counts": {},
+      "name": "Nanolek"
+    },
+    {
+      "expr": "LEADSPONSOR:\"ChemRar\"",
+      "total_trials": 2,
+      "phase_counts": {
+        "Phase 3": 1,
+        "Phase 2": 1
+      },
+      "status_counts": {
+        "Unknown": 1,
+        "Completed": 1
+      },
+      "name": "ChemRar"
+    },
+    {
+      "expr": "LEADSPONSOR:\"AstraZeneca\"",
+      "total_trials": 2000,
+      "phase_counts": {
+        "Phase 3": 449,
+        "Phase 1": 595,
+        "Phase 2": 275,
+        "Phase 4": 123,
+        "Early Phase 1": 4,
+        "Not Applicable": 9
+      },
+      "status_counts": {
+        "Completed": 1556,
+        "Terminated": 129,
+        "Active Not Recruiting": 118,
+        "Recruiting": 130,
+        "Withdrawn": 35,
+        "Not Yet Recruiting": 21,
+        "Enrolling By Invitation": 1,
+        "Suspended": 4,
+        "No Longer Available": 2,
+        "Unknown": 2,
+        "Approved For Marketing": 2
+      },
+      "name": "AstraZeneca"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Novartis\"",
+      "total_trials": 2000,
+      "phase_counts": {
+        "Phase 1": 320,
+        "Phase 3": 647,
+        "Phase 4": 310,
+        "Phase 2": 511,
+        "Not Applicable": 11
+      },
+      "status_counts": {
+        "Completed": 1503,
+        "Recruiting": 87,
+        "Terminated": 239,
+        "Active Not Recruiting": 70,
+        "Withdrawn": 60,
+        "No Longer Available": 14,
+        "Available": 10,
+        "Not Yet Recruiting": 15,
+        "Approved For Marketing": 2
+      },
+      "name": "Novartis"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Johnson & Johnson\"",
+      "total_trials": 910,
+      "phase_counts": {
+        "Phase 2": 114,
+        "Phase 1": 157,
+        "Not Applicable": 295,
+        "Phase 3": 208,
+        "Phase 4": 67
+      },
+      "status_counts": {
+        "Completed": 821,
+        "Withdrawn": 14,
+        "Terminated": 64,
+        "Recruiting": 9,
+        "Not Yet Recruiting": 1,
+        "Approved For Marketing": 1
+      },
+      "name": "Johnson & Johnson"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Roche\"",
+      "total_trials": 2000,
+      "phase_counts": {
+        "Phase 4": 204,
+        "Phase 3": 533,
+        "Phase 1": 469,
+        "Phase 2": 390,
+        "Not Applicable": 47,
+        "Early Phase 1": 1
+      },
+      "status_counts": {
+        "Completed": 1568,
+        "Terminated": 182,
+        "Active Not Recruiting": 111,
+        "Recruiting": 85,
+        "Withdrawn": 39,
+        "Unknown": 3,
+        "Not Yet Recruiting": 9,
+        "No Longer Available": 3
+      },
+      "name": "Roche"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Sanofi\"",
+      "total_trials": 2000,
+      "phase_counts": {
+        "Phase 3": 675,
+        "Phase 1": 382,
+        "Phase 2": 453,
+        "Phase 4": 336,
+        "Not Applicable": 17
+      },
+      "status_counts": {
+        "Completed": 1590,
+        "Recruiting": 78,
+        "Terminated": 207,
+        "Active Not Recruiting": 83,
+        "Not Yet Recruiting": 15,
+        "Withdrawn": 17,
+        "Unknown": 3,
+        "Approved For Marketing": 4,
+        "No Longer Available": 2,
+        "Suspended": 1
+      },
+      "name": "Sanofi"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Bayer\"",
+      "total_trials": 1639,
+      "phase_counts": {
+        "Phase 3": 316,
+        "Phase 2": 234,
+        "Not Applicable": 114,
+        "Phase 1": 359,
+        "Phase 4": 109
+      },
+      "status_counts": {
+        "Completed": 1417,
+        "Terminated": 98,
+        "Recruiting": 37,
+        "Not Yet Recruiting": 9,
+        "No Longer Available": 8,
+        "Active Not Recruiting": 41,
+        "Withdrawn": 26,
+        "Suspended": 1,
+        "Available": 1,
+        "Approved For Marketing": 1
+      },
+      "name": "Bayer"
+    },
+    {
+      "expr": "LEADSPONSOR:\"AbbVie\"",
+      "total_trials": 1114,
+      "phase_counts": {
+        "Phase 1": 262,
+        "Phase 3": 292,
+        "Phase 2": 227,
+        "Phase 4": 38
+      },
+      "status_counts": {
+        "Terminated": 86,
+        "Completed": 724,
+        "Active Not Recruiting": 99,
+        "Recruiting": 140,
+        "Not Yet Recruiting": 12,
+        "Withdrawn": 27,
+        "Available": 7,
+        "Approved For Marketing": 1,
+        "Suspended": 2,
+        "Enrolling By Invitation": 7,
+        "No Longer Available": 9
+      },
+      "name": "AbbVie"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Gilead\"",
+      "total_trials": 710,
+      "phase_counts": {
+        "Phase 1": 179,
+        "Phase 2": 241,
+        "Phase 3": 196,
+        "Phase 4": 36,
+        "Not Applicable": 10
+      },
+      "status_counts": {
+        "Completed": 475,
+        "Recruiting": 32,
+        "Active Not Recruiting": 42,
+        "Terminated": 123,
+        "Withdrawn": 15,
+        "Available": 3,
+        "Not Yet Recruiting": 1,
+        "Unknown": 7,
+        "Approved For Marketing": 9,
+        "Enrolling By Invitation": 2,
+        "No Longer Available": 1
+      },
+      "name": "Gilead"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Moderna\"",
+      "total_trials": 0,
+      "phase_counts": {},
+      "status_counts": {},
+      "name": "Moderna"
+    },
+    {
+      "expr": "LEADSPONSOR:\"Takeda\"",
+      "total_trials": 995,
+      "phase_counts": {
+        "Phase 3": 306,
+        "Phase 2": 162,
+        "Phase 1": 206,
+        "Phase 4": 73,
+        "Not Applicable": 2
+      },
+      "status_counts": {
+        "Completed": 724,
+        "Terminated": 89,
+        "Withdrawn": 39,
+        "Not Yet Recruiting": 10,
+        "Active Not Recruiting": 51,
+        "Recruiting": 75,
+        "Available": 5,
+        "No Longer Available": 1,
+        "Approved For Marketing": 1
+      },
+      "name": "Takeda"
+    }
+  ],
+  "expr_template": "LEADSPONSOR:\"{sponsor}\"",
+  "companies": [
+    {
+      "name": "Pfizer",
+      "n_I": 706,
+      "n_II": 350,
+      "n_III": 408
+    },
+    {
+      "name": "BIOCAD",
+      "n_I": 32,
+      "n_II": 19,
+      "n_III": 41
+    },
+    {
+      "name": "Generium",
+      "n_I": 12,
+      "n_II": 2,
+      "n_III": 13
+    },
+    {
+      "name": "R-Pharm",
+      "n_I": 22,
+      "n_II": 25,
+      "n_III": 18
+    },
+    {
+      "name": "Pharmstandard",
+      "n_I": 0,
+      "n_II": 0,
+      "n_III": 0
+    },
+    {
+      "name": "Geropharm",
+      "n_I": 6,
+      "n_II": 0,
+      "n_III": 7
+    },
+    {
+      "name": "Petrovax",
+      "n_I": 0,
+      "n_II": 2,
+      "n_III": 5
+    },
+    {
+      "name": "Valenta",
+      "n_I": 9,
+      "n_II": 4,
+      "n_III": 12
+    },
+    {
+      "name": "Nanolek",
+      "n_I": 0,
+      "n_II": 0,
+      "n_III": 0
+    },
+    {
+      "name": "ChemRar",
+      "n_I": 0,
+      "n_II": 1,
+      "n_III": 1
+    },
+    {
+      "name": "AstraZeneca",
+      "n_I": 595,
+      "n_II": 275,
+      "n_III": 449
+    },
+    {
+      "name": "Novartis",
+      "n_I": 320,
+      "n_II": 511,
+      "n_III": 647
+    },
+    {
+      "name": "Johnson & Johnson",
+      "n_I": 157,
+      "n_II": 114,
+      "n_III": 208
+    },
+    {
+      "name": "Roche",
+      "n_I": 469,
+      "n_II": 390,
+      "n_III": 533
+    },
+    {
+      "name": "Sanofi",
+      "n_I": 382,
+      "n_II": 453,
+      "n_III": 675
+    },
+    {
+      "name": "Bayer",
+      "n_I": 359,
+      "n_II": 234,
+      "n_III": 316
+    },
+    {
+      "name": "AbbVie",
+      "n_I": 262,
+      "n_II": 227,
+      "n_III": 292
+    },
+    {
+      "name": "Gilead",
+      "n_I": 179,
+      "n_II": 241,
+      "n_III": 196
+    },
+    {
+      "name": "Moderna",
+      "n_I": 0,
+      "n_II": 0,
+      "n_III": 0
+    },
+    {
+      "name": "Takeda",
+      "n_I": 206,
+      "n_II": 162,
+      "n_III": 306
+    }
+  ]
+}

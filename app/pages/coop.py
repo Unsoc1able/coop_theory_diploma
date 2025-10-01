@@ -34,7 +34,7 @@ layout = html.Div(
                     ],
                     className="flex-row",
                 ),
-                html.Div(id="coop-summary", className="note", style={"marginTop": "12px"}),
+                html.Div(id="coop-summary", className="coop-summary", style={"marginTop": "12px"}),
                 dash_table.DataTable(
                     id="coop-table",
                     columns=[

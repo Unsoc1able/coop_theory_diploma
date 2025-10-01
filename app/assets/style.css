@@ -107,6 +107,103 @@ body {
   gap: 12px;
 }
 
+.phase-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.phase-grid .slider-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.slider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.slider-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.slider-label-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: inherit;
+}
+
+.slider-label-text {
+  white-space: normal;
+}
+
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  color: #1d4ed8;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.info-icon:hover {
+  background: #e0e7ff;
+}
+
+.slider-label-wrapper:focus-within .info-icon,
+.info-icon:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+.tooltip-popup {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  max-width: 260px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #1f2937;
+  z-index: 5;
+}
+
+.slider-label-wrapper:hover .tooltip-popup,
+.slider-label-wrapper:focus-within .tooltip-popup {
+  display: block;
+}
+
+.slider-card--ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.coop-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
 .controls-row {
   display: flex;
   gap: 12px;
@@ -120,6 +217,12 @@ body {
   background: white;
   border-radius: 10px;
   padding: var(--pad);
+}
+
+.coop-summary {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
 }
 
 .kpi-grid {
@@ -165,7 +268,7 @@ body {
 
 .graph-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: var(--gap);
 }
 
@@ -174,5 +277,13 @@ body {
   .kpi-grid,
   .graph-grid {
     grid-template-columns: 1fr;
+  }
+
+  .phase-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .slider-card--ghost {
+    display: none;
   }
 }
