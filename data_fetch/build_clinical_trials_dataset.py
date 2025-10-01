@@ -55,6 +55,16 @@ from data.parsers.clinical_trials import (
 )
 from data.parsers.clinical_trials_api import ClinicalTrialsClient
 
+DEFAULT_OUTPUT = ROOT / "data" / "clinical_trials_by_sponsor.json"
+
+
+def resolve_output_path(path: Path) -> Path:
+    """Return an absolute path for the dataset output file."""
+
+    if path.is_absolute():
+        return path
+    return (ROOT / path).resolve()
+
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -85,7 +95,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path("data/clinical_trials_by_sponsor.json"),
+        default=DEFAULT_OUTPUT,
         help="Output path for the dataset (JSON).",
     )
     parser.add_argument(
@@ -106,7 +116,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
 
     client = ClinicalTrialsClient()
-    args.out.parent.mkdir(parents=True, exist_ok=True)
+    output_path = resolve_output_path(args.out)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     dataset: Dict[str, object] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -135,12 +146,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_studies=args.max_studies,
         )
         dataset["expr_template"] = args.expr_template
-        dataset["sponsors"] = parser.parse().payload["records"]
+        sponsors_records = parser.parse().payload["records"]
+        dataset["sponsors"] = sponsors_records
+        dataset["companies"] = [
+            {
+                "name": record.get("name", ""),
+                "n_I": int(record.get("phase_counts", {}).get("Phase 1", 0)),
+                "n_II": int(record.get("phase_counts", {}).get("Phase 2", 0)),
+                "n_III": int(record.get("phase_counts", {}).get("Phase 3", 0)),
+            }
+            for record in sponsors_records
+        ]
 
-    with args.out.open("w", encoding="utf-8") as f:
+    with output_path.open("w", encoding="utf-8") as f:
         json.dump(dataset, f, ensure_ascii=False, indent=args.indent)
 
-    print(f"Dataset written to {args.out}")
+    print(f"Dataset written to {output_path}")
     return 0
 
 

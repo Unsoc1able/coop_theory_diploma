@@ -36,6 +36,16 @@ DEFAULT_SPONSORS: Sequence[str] = (
     "Valenta",
     "Nanolek",
     "ChemRar",
+    "AstraZeneca",
+    "Novartis",
+    "Johnson & Johnson",
+    "Roche",
+    "Sanofi",
+    "Bayer",
+    "AbbVie",
+    "Gilead",
+    "Moderna",
+    "Takeda",
 )
 
 # Keywords used by the API when a study does not contain a standard phase entry.

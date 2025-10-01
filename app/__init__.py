@@ -1,6 +1,6 @@
 """Dash application factory and global layout."""
 
-from .data import INITIAL_COMPANIES, INITIAL_PARAMETERS
+from .data import INITIAL_PARAMETERS, load_companies
 
 
 def create_app():
@@ -15,10 +15,12 @@ def create_app():
         title="Кооперативная модель R&D",
     )
 
+    companies_data = load_companies()
+
     app.layout = html.Div(
         [
             dcc.Location(id="url"),
-            dcc.Store(id="companies-store", data=INITIAL_COMPANIES),
+            dcc.Store(id="companies-store", data=companies_data),
             dcc.Store(id="parameters-store", data=INITIAL_PARAMETERS),
             html.Header(
                 [
