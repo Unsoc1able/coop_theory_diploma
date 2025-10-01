@@ -79,14 +79,16 @@ def test_fetch_study_fields_streams_pages() -> None:
     assert second.total_studies == 3
     assert second.next_rank is None
 
-    assert session.calls[0]["url"].endswith("/study-fields")
+    assert session.calls[0]["url"].endswith("/api/v2/studies")
     assert session.calls[0]["params"] == {
         "format": "json",
         "pageSize": 2,
         "query.term": "HEART ATTACK",
         "fields": "NCTId,Phase",
+        "countTotal": "true",
     }
     assert session.calls[1]["params"]["pageToken"] == "3"
+    assert "countTotal" not in session.calls[1]["params"]
 
 
 def test_fetch_study_fields_honours_min_and_max_ranks() -> None:
@@ -147,3 +149,118 @@ def test_fetch_study_fields_raises_for_http_errors() -> None:
                 fields=["NCTId"],
             )
         )
+
+
+def test_fetch_study_fields_translates_legacy_sponsor_expression() -> None:
+    session = _DummySession(
+        responses=[
+            _DummyResponse(
+                {
+                    "studies": [],
+                    "totalCount": 0,
+                }
+            )
+        ]
+    )
+
+    client = ClinicalTrialsClient(session=session, request_delay=0.0)
+
+    list(
+        client.fetch_study_fields(
+            expr='LEADSPONSOR:"Pfizer"',
+            fields=["NCTId"],
+            batch_size=1,
+        )
+    )
+
+    assert session.calls[0]["params"]["query.term"] == 'AREA[LeadSponsorName]"Pfizer"'
+
+
+def test_fetch_study_fields_handles_v2_payload_shape() -> None:
+    session = _DummySession(
+        responses=[
+            _DummyResponse(
+                {
+                    "studies": [
+                        {
+                            "protocolSection": {
+                                "identificationModule": {
+                                    "nctId": "NCT99999",
+                                },
+                                "sponsorCollaboratorsModule": {
+                                    "leadSponsor": {"name": "Pfizer"},
+                                    "collaborators": [
+                                        {"name": "BioNTech"},
+                                        {"name": "NIH"},
+                                    ],
+                                },
+                                "designModule": {
+                                    "phases": ["PHASE3"],
+                                    "studyType": "INTERVENTIONAL",
+                                    "enrollmentInfo": {"count": 437},
+                                },
+                                "statusModule": {
+                                    "overallStatus": "RECRUITING",
+                                    "startDateStruct": {"date": "2024-01"},
+                                    "primaryCompletionDateStruct": {"date": "2025-06-01"},
+                                    "lastUpdatePostDateStruct": {"date": "2024-05-01"},
+                                },
+                                "conditionsModule": {
+                                    "conditions": ["COVID-19", "SARS-CoV-2"],
+                                },
+                            }
+                        }
+                    ],
+                    "totalCount": 120,
+                    "nextPageToken": "token-123",
+                }
+            ),
+            _DummyResponse(
+                {
+                    "studies": [],
+                }
+            ),
+        ]
+    )
+
+    client = ClinicalTrialsClient(session=session, request_delay=0.0)
+
+    chunks = list(
+        client.fetch_study_fields(
+            expr="COVID",
+            fields=[
+                "NCTId",
+                "LeadSponsorName",
+                "CollaboratorName",
+                "Phase",
+                "OverallStatus",
+                "StudyType",
+                "EnrollmentCount",
+                "StartDate",
+                "PrimaryCompletionDate",
+                "LastUpdatePostDate",
+                "Condition",
+            ],
+            batch_size=5,
+        )
+    )
+
+    assert len(chunks) == 1
+    assert len(session.calls) == 2
+    assert session.calls[1]["params"]["pageToken"] == "token-123"
+    chunk = chunks[0]
+    assert chunk.total_studies == 120
+    assert chunk.next_page_token == "token-123"
+
+    study = chunk.studies[0]
+    assert study["NCTId"] == ["NCT99999"]
+    assert study["LeadSponsorName"] == ["Pfizer"]
+    assert study["CollaboratorName"] == ["BioNTech", "NIH"]
+    assert study["Phase"] == ["Phase 3"]
+    assert study["OverallStatus"] == ["Recruiting"]
+    assert study["StudyType"] == ["Interventional"]
+    assert study["EnrollmentCount"] == ["437"]
+    assert study["StartDate"] == ["2024-01"]
+    assert study["PrimaryCompletionDate"] == ["2025-06-01"]
+    assert study["LastUpdatePostDate"] == ["2024-05-01"]
+    assert study["Condition"] == ["COVID-19", "SARS-CoV-2"]

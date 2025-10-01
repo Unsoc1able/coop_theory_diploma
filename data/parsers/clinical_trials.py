@@ -149,7 +149,7 @@ class ClinicalTrialsBySponsorParser(_ClinicalTrialsBaseParser):
         self,
         sponsors: Sequence[str] | None = None,
         *,
-        expr_template: str = 'LEADSPONSOR:"{sponsor}"',
+        expr_template: str = 'AREA[LeadSponsorName]"{sponsor}"',
         client: ClinicalTrialsClient | None = None,
         fields: Sequence[str] = FIELDS,
         batch_size: int = 200,
