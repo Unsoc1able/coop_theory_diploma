@@ -1,0 +1,50 @@
+{
+  "ProtocolSection": {
+    "IdentificationModule": {
+      "NCTId": "NCT01234567",
+      "BriefTitle": "Example oncology study",
+      "OfficialTitle": "Phase 2 Study of Example Drug",
+      "OrgStudyIdInfo": {"OrgStudyId": "ABC-123"},
+      "SecondaryIdList": {"SecondaryId": ["EUCTR2019-012345-67", "ISRCTN12345678"]}
+    },
+    "StatusModule": {
+      "OverallStatus": "Recruiting",
+      "StartDateStruct": {"StartDate": "January 2023"},
+      "PrimaryCompletionDateStruct": {"PrimaryCompletionDate": "March 2024"},
+      "CompletionDateStruct": {"CompletionDate": "June 2024"},
+      "LastUpdatePostDateStruct": {"LastUpdatePostDate": "2024-02-01"}
+    },
+    "DesignModule": {
+      "PhaseList": {"Phase": ["Phase 2"]},
+      "StudyType": "Interventional",
+      "EnrollmentInfo": {"EnrollmentCount": "120"}
+    },
+    "SponsorCollaboratorsModule": {
+      "LeadSponsor": {"LeadSponsorName": "BioPharma"},
+      "CollaboratorList": {"Collaborator": [{"CollaboratorName": "CoLab One"}]}
+    },
+    "ContactsLocationsModule": {
+      "LocationList": {
+        "Location": [
+          {"LocationCountry": "United States"},
+          {"LocationCountry": "Canada"}
+        ]
+      }
+    },
+    "LocationCountriesModule": {
+      "LocationCountry": ["United States", "Canada"]
+    },
+    "ConditionsModule": {
+      "ConditionList": {"Condition": ["Oncology Condition"]}
+    },
+    "ArmsInterventionsModule": {
+      "InterventionList": {
+        "Intervention": [
+          {"InterventionName": "Drug A"},
+          {"InterventionName": "Drug B"}
+        ]
+      }
+    }
+  },
+  "StudyType": "Interventional"
+}
