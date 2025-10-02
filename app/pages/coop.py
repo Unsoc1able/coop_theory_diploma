@@ -28,6 +28,7 @@ CORE_TABLE_COLUMNS = [
     {"name": "Σφ(S)", "id": "phiS"},
     {"name": "Δ(S)", "id": "deficit"},
     {"name": "Δ(S)/v(S)", "id": "deficitShare"},
+
     {"name": "mask", "id": "mask"},
     {"name": "violation", "id": "violation"},
     {"name": "group", "id": "is_group"},
