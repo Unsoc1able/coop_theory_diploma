@@ -28,9 +28,10 @@ CORE_TABLE_COLUMNS = [
     {"name": "Σφ(S)", "id": "phiS"},
     {"name": "Δ(S)", "id": "deficit"},
     {"name": "Δ(S)/v(S)", "id": "deficitShare"},
-    {"name": "mask", "id": "mask", "hidden": True},
-    {"name": "violation", "id": "violation", "hidden": True},
-    {"name": "group", "id": "is_group", "hidden": True},
+
+    {"name": "mask", "id": "mask"},
+    {"name": "violation", "id": "violation"},
+    {"name": "group", "id": "is_group"},
 ]
 
 
@@ -152,6 +153,7 @@ layout = html.Div(
                                 dash_table.DataTable(
                                     id="core-violations-table",
                                     columns=CORE_TABLE_COLUMNS,
+                                    hidden_columns=["mask", "violation", "is_group"],
                                     style_cell={"fontSize": 13},
                                     style_header={"fontWeight": "600", "color": "#111827"},
                                     style_table={"marginTop": "12px"},
