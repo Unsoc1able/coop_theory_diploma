@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import itertools
 import math
-from typing import Dict, Iterable, List, Sequence
+import random
+from dataclasses import dataclass
+from typing import Dict, Iterable, List, Optional, Sequence
 
 Company = Dict[str, float]
 Parameters = Dict[str, float]
@@ -139,6 +141,169 @@ def shapley_values(
     return phi
 
 
+@dataclass
+class CoreViolation:
+    """Detailed information about the core deficit of a coalition."""
+
+    mask: int
+    coalition: List[str]
+    v_s: float
+    phi_s: float
+    deficit: float
+    deficit_share: float
+    size: int
+    violation: bool
+    marginals: Dict[str, float]
+
+
+@dataclass
+class CoreCheckResult:
+    """Container with diagnostics of the core conditions."""
+
+    efficient: bool
+    total_phi: float
+    grand_value: float
+    coalitions: List[CoreViolation]
+    sampled: bool = False
+
+
+def _popcount(mask: int) -> int:
+    count = 0
+    while mask:
+        mask &= mask - 1
+        count += 1
+    return count
+
+
+def _collect_masks(
+    n: int,
+    *,
+    r_max: Optional[int] = None,
+    sample: Optional[int] = None,
+) -> List[int]:
+    """Return the masks that should be evaluated for the core check."""
+
+    grand_mask = (1 << n) - 1
+    masks: List[int] = []
+    if sample and sample > 0:
+        rng = random.Random(42)
+        seen = {0, grand_mask}
+        # Draw unique masks until either we exhaust the space or reach sample.
+        while len(masks) < sample and len(seen) < (1 << n):
+            mask = rng.randrange(1, grand_mask)
+            if mask in seen:
+                continue
+            seen.add(mask)
+            if r_max:
+                size = _popcount(mask)
+                if not (size <= r_max or size >= n - r_max):
+                    continue
+            masks.append(mask)
+        return masks
+
+    for mask in range(1, grand_mask):
+        if r_max:
+            size = _popcount(mask)
+            if not (size <= r_max or size >= n - r_max):
+                continue
+        masks.append(mask)
+    return masks
+
+
+def core_diagnostics(
+    phi: Dict[str, float],
+    players: Sequence[str],
+    companies: Sequence[Company],
+    params: Parameters,
+    *,
+    eps_abs: float = 1e-6,
+    eps_rel: float = 1e-9,
+    r_max: Optional[int] = None,
+    sample: Optional[int] = None,
+) -> CoreCheckResult:
+    """Evaluate core conditions and return detailed diagnostics."""
+
+    players = list(players)
+    n = len(players)
+    if n == 0:
+        return CoreCheckResult(True, 0.0, 0.0, [], sampled=False)
+
+    index_of = {player: idx for idx, player in enumerate(players)}
+    grand_mask = (1 << n) - 1
+    v_cache: Dict[int, float] = {}
+
+    def mask_to_players(mask: int) -> List[str]:
+        return [player for player in players if mask >> index_of[player] & 1]
+
+    def value_of(mask: int) -> float:
+        if mask in v_cache:
+            return v_cache[mask]
+        if mask == 0:
+            v_cache[mask] = 0.0
+            return 0.0
+        subset = mask_to_players(mask)
+        val = coalition_savings(subset, companies, params)
+        v_cache[mask] = val
+        return val
+
+    total_phi = sum(phi.get(player, 0.0) for player in players)
+    grand_value = value_of(grand_mask)
+    scale = max(1.0, abs(grand_value))
+    eff_tol = max(eps_abs * scale, eps_rel * scale)
+    efficient = abs(total_phi - grand_value) <= eff_tol
+
+    coalitions: List[CoreViolation] = []
+    sampled = False
+    masks = _collect_masks(n, r_max=r_max, sample=sample)
+    if sample:
+        sampled = True
+
+    for mask in masks:
+        coalition_players = mask_to_players(mask)
+        size = len(coalition_players)
+        if size == 0 or size == n:
+            continue
+        v_s = value_of(mask)
+        phi_s = sum(phi.get(player, 0.0) for player in coalition_players)
+        tol = max(eps_abs * max(1.0, abs(v_s)), eps_rel * max(1.0, abs(v_s)))
+        deficit = v_s - phi_s
+        violation = deficit > tol
+        denominator = max(1e-9, abs(v_s))
+        deficit_share = deficit / denominator
+
+        marginals: Dict[str, float] = {}
+        if violation:
+            for player in coalition_players:
+                idx = index_of[player]
+                without_mask = mask & ~(1 << idx)
+                v_without = value_of(without_mask)
+                marginal = (v_s - v_without) - phi.get(player, 0.0)
+                marginals[player] = marginal
+
+        coalitions.append(
+            CoreViolation(
+                mask=mask,
+                coalition=coalition_players,
+                v_s=v_s,
+                phi_s=phi_s,
+                deficit=deficit,
+                deficit_share=deficit_share,
+                size=size,
+                violation=violation,
+                marginals=marginals,
+            )
+        )
+
+    coalitions.sort(key=lambda item: item.deficit, reverse=True)
+    return CoreCheckResult(
+        efficient=efficient,
+        total_phi=total_phi,
+        grand_value=grand_value,
+        coalitions=coalitions,
+        sampled=sampled,
+    )
+
+
 def core_check(
     phi: Dict[str, float],
     players: Sequence[str],
@@ -146,14 +311,6 @@ def core_check(
     params: Parameters,
 ) -> bool:
     """Return True if the Shapley point lies in the core."""
-    players = list(players)
-    grand = coalition_savings(players, companies, params)
-    if not math.isclose(sum(phi.values()), grand, rel_tol=1e-6, abs_tol=1e-6):
-        return False
-    for r in range(1, len(players)):
-        for subset in itertools.combinations(players, r):
-            lhs = sum(phi[player] for player in subset)
-            rhs = coalition_savings(subset, companies, params)
-            if lhs + 1e-9 < rhs:
-                return False
-    return True
+
+    result = core_diagnostics(phi, players, companies, params)
+    return result.efficient and not any(v.violation for v in result.coalitions)
