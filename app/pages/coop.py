@@ -28,6 +28,7 @@ CORE_TABLE_COLUMNS = [
     {"name": "Σφ(S)", "id": "phiS"},
     {"name": "Δ(S)", "id": "deficit"},
     {"name": "Δ(S)/v(S)", "id": "deficitShare"},
+
     {"name": "mask", "id": "mask"},
     {"name": "violation", "id": "violation"},
     {"name": "group", "id": "is_group"},
@@ -385,6 +386,7 @@ def update_core_tab(n_clicks, payload, options, r_max, top_k):
         display_row.setdefault("mask", display_row.get("mask", ""))
         display_row.setdefault("is_group", False)
         display_row.pop("marginals", None)
+
         rows.append(display_row)
 
     rows.sort(key=lambda item: float(item.get("_deficit_value", 0.0)), reverse=True)
