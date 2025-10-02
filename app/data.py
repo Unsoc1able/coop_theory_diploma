@@ -174,8 +174,10 @@ def load_companies(dataset_path: Path | None = None) -> List[dict]:
             filtered = _filter_small_portfolios(companies)
             if filtered:
                 return filtered
+            if companies:
+                return companies
 
-    return _filter_small_portfolios(SYNTHETIC_COMPANIES)
+    return SYNTHETIC_COMPANIES
 
 
 __all__ = [
