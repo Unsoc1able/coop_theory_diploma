@@ -18,6 +18,118 @@ DATASET_PATH = DEFAULT_DATASET_PATH
 MIN_TOTAL_PROJECTS = 20
 
 
+EXPENSES_DATA = [
+    {
+        "month": "2024-01",
+        "category": "Персонал",
+        "subcategory": "Зарплата",
+        "amount": 320.0,
+    },
+    {
+        "month": "2024-01",
+        "category": "Персонал",
+        "subcategory": "Налоги и взносы",
+        "amount": 82.0,
+    },
+    {
+        "month": "2024-01",
+        "category": "Инфраструктура",
+        "subcategory": "Аренда",
+        "amount": 140.0,
+    },
+    {
+        "month": "2024-01",
+        "category": "Инфраструктура",
+        "subcategory": "Обслуживание",
+        "amount": 58.0,
+    },
+    {
+        "month": "2024-01",
+        "category": "Исследования",
+        "subcategory": "Клинические испытания",
+        "amount": 112.0,
+    },
+    {
+        "month": "2024-01",
+        "category": "Исследования",
+        "subcategory": "Реагенты и расходные материалы",
+        "amount": 94.0,
+    },
+    {
+        "month": "2024-02",
+        "category": "Персонал",
+        "subcategory": "Зарплата",
+        "amount": 326.0,
+    },
+    {
+        "month": "2024-02",
+        "category": "Персонал",
+        "subcategory": "Налоги и взносы",
+        "amount": 84.0,
+    },
+    {
+        "month": "2024-02",
+        "category": "Инфраструктура",
+        "subcategory": "Аренда",
+        "amount": 140.0,
+    },
+    {
+        "month": "2024-02",
+        "category": "Инфраструктура",
+        "subcategory": "Обслуживание",
+        "amount": 64.0,
+    },
+    {
+        "month": "2024-02",
+        "category": "Исследования",
+        "subcategory": "Клинические испытания",
+        "amount": 126.0,
+    },
+    {
+        "month": "2024-02",
+        "category": "Исследования",
+        "subcategory": "Реагенты и расходные материалы",
+        "amount": 98.0,
+    },
+    {
+        "month": "2024-03",
+        "category": "Персонал",
+        "subcategory": "Зарплата",
+        "amount": 333.0,
+    },
+    {
+        "month": "2024-03",
+        "category": "Персонал",
+        "subcategory": "Налоги и взносы",
+        "amount": 86.0,
+    },
+    {
+        "month": "2024-03",
+        "category": "Инфраструктура",
+        "subcategory": "Аренда",
+        "amount": 140.0,
+    },
+    {
+        "month": "2024-03",
+        "category": "Инфраструктура",
+        "subcategory": "Обслуживание",
+        "amount": 66.0,
+    },
+    {
+        "month": "2024-03",
+        "category": "Исследования",
+        "subcategory": "Клинические испытания",
+        "amount": 134.0,
+    },
+    {
+        "month": "2024-03",
+        "category": "Исследования",
+        "subcategory": "Реагенты и расходные материалы",
+        "amount": 101.0,
+    },
+]
+
+
 SYNTHETIC_COMPANIES: List[dict] = [
     {"name": "Pfizer", "n_I": 45, "n_II": 28, "n_III": 37},
     {"name": "BIOCAD", "n_I": 15, "n_II": 9, "n_III": 18},
@@ -185,6 +297,7 @@ __all__ = [
     "DEFAULT_DATASET_PATH",
     "DATASET_PATH",
     "MIN_TOTAL_PROJECTS",
+    "EXPENSES_DATA",
     "SYNTHETIC_COMPANIES",
     "INITIAL_PARAMETERS",
     "PARAMETER_PRESETS",
