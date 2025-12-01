@@ -50,20 +50,22 @@ WEIGHTS: Sequence[WeightSpec] = (
 )
 
 
-def _filter_small_companies(companies: Iterable[Mapping[str, object]] | None) -> List[Dict[str, float]]:
+def _filter_small_companies(companies: Iterable[Mapping[str, object]] | None) -> List[Dict[str, object]]:
     companies = list(companies or [])
-    filtered: List[Dict[str, float]] = []
+    filtered: List[Dict[str, object]] = []
     for company in companies:
         total = float(company.get("n_I", 0)) + float(company.get("n_II", 0)) + float(company.get("n_III", 0))
         if total >= MIN_TOTAL_PROJECTS:
-            filtered.append(
-                {
-                    "name": str(company.get("name", "")),
-                    "n_I": float(company.get("n_I", 0)),
-                    "n_II": float(company.get("n_II", 0)),
-                    "n_III": float(company.get("n_III", 0)),
-                }
-            )
+            enriched = {
+                "name": str(company.get("name", "")),
+                "n_I": float(company.get("n_I", 0)),
+                "n_II": float(company.get("n_II", 0)),
+                "n_III": float(company.get("n_III", 0)),
+            }
+            for key in ("condition_counts", "status_counts", "status_timeline", "successes", "total_trials"):
+                if key in company:
+                    enriched[key] = company[key]
+            filtered.append(enriched)
     return filtered
 
 
@@ -283,20 +285,79 @@ def _derive_series_from_company(name: str, approvals: float, projects: float, le
     return series
 
 
-def _build_similarity_from_metrics(metrics: Sequence[Mapping[str, float]], params: Mapping[str, float]):
+def _condition_matrix(companies: Sequence[Mapping[str, object]]) -> tuple[list[str], np.ndarray] | tuple[None, None]:
+    """Return condition vocabulary and matrix if condition counts exist."""
+
+    vocabulary: list[str] = []
+    for company in companies:
+        counts = company.get("condition_counts")
+        if isinstance(counts, Mapping):
+            vocabulary.extend(key for key, value in counts.items() if value)
+
+    if not vocabulary:
+        return None, None
+
+    unique_vocab = sorted(set(vocabulary))
+    matrix = np.zeros((len(companies), len(unique_vocab)), dtype=float)
+    for row, company in enumerate(companies):
+        counts = company.get("condition_counts")
+        if not isinstance(counts, Mapping):
+            continue
+        for col, condition in enumerate(unique_vocab):
+            matrix[row, col] = float(counts.get(condition, 0) or 0)
+
+    return unique_vocab, matrix
+
+
+def _series_from_timeline(company: Mapping[str, object]) -> np.ndarray | None:
+    timeline = company.get("status_timeline")
+    if not isinstance(timeline, Mapping) or not timeline:
+        return None
+
+    years = sorted(int(year) for year in timeline.keys())
+    start_year, end_year = years[0], years[-1]
+    length = end_year - start_year + 1
+    if length <= 0:
+        return None
+
+    completed = np.zeros(length)
+    fallback_started = np.zeros(length)
+    for year in years:
+        payload = timeline.get(year, {})
+        idx = year - start_year
+        if isinstance(payload, Mapping):
+            completed[idx] = float(payload.get("completed", 0) or 0)
+            fallback_started[idx] = float(payload.get("started", 0) or 0)
+
+    if np.allclose(completed, 0):
+        completed = fallback_started
+
+    return completed if completed.size else None
+
+
+def _build_similarity_from_metrics(metrics: Sequence[Mapping[str, object]], params: Mapping[str, float]):
     names = [item["name"] for item in metrics]
-    counts = np.array([[item.get("n_I", 0.0), item.get("n_II", 0.0), item.get("n_III", 0.0)] for item in metrics])
+    counts = np.array([[float(item.get("n_I", 0.0)), float(item.get("n_II", 0.0)), float(item.get("n_III", 0.0))] for item in metrics])
     totals = counts.sum(axis=1, keepdims=True)
     X_nos = np.divide(counts, np.where(totals == 0, 1.0, totals))
-    P = (counts > 0).astype(int)
-    U_list = [
-        _derive_series_from_company(
-            item["name"],
-            item.get("approvals", 0.0),
-            item.get("n_I", 0.0) + item.get("n_II", 0.0) + item.get("n_III", 0.0),
-        )
-        for item in metrics
-    ]
+
+    vocab, condition_matrix = _condition_matrix(metrics)
+    if condition_matrix is not None:
+        P = (condition_matrix > 0).astype(int)
+    else:
+        P = (counts > 0).astype(int)
+
+    U_list: list[np.ndarray] = []
+    for item in metrics:
+        derived_series = _series_from_timeline(item)
+        if derived_series is None or derived_series.size == 0:
+            approvals = item.get("approvals")
+            if approvals is None:
+                approvals = item.get("successes", 0.0)
+            projects = item.get("n_I", 0.0) + item.get("n_II", 0.0) + item.get("n_III", 0.0)
+            derived_series = _derive_series_from_company(item["name"], float(approvals or 0.0), float(projects or 0.0))
+        U_list.append(np.asarray(derived_series, dtype=float))
+
     S_cos = cosine_similarity_matrix(X_nos)
     S_jac = jaccard_similarity_matrix(P)
     S_rel = reliability_similarity_matrix_varlen(
@@ -555,7 +616,15 @@ def update_clusters(companies, params, weights):
 
     if companies:
         metrics = compute_company_metrics(companies, params)
-        names, S_cos, S_jac, S_rel, S_agg = _build_similarity_from_metrics(metrics, weights)
+        merged: List[Dict[str, object]] = []
+        metrics_by_name = {m["name"]: m for m in metrics}
+        for company in companies:
+            combined = dict(company)
+            if combined.get("name") in metrics_by_name:
+                combined.update(metrics_by_name[combined["name"]])
+            merged.append(combined)
+
+        names, S_cos, S_jac, S_rel, S_agg = _build_similarity_from_metrics(merged, weights)
     else:
         # Фолбэк: синтетические данные
         X_nos, P, U_list, true_clusters = generate_synthetic_data(random_state=123)
@@ -663,20 +732,32 @@ def download_thresholds(n_clicks, weights, companies, params):
     companies = _filter_small_companies(companies)
     params = params or {}
     metrics = compute_company_metrics(companies, params) if companies else []
+    merged: List[Dict[str, object]] = []
+    metrics_by_name = {m["name"]: m for m in metrics}
+    for company in companies:
+        combined = dict(company)
+        if combined.get("name") in metrics_by_name:
+            combined.update(metrics_by_name[combined["name"]])
+        merged.append(combined)
 
     payload = {
         "weights": weights,
         "companies": [
             {
-                "name": item["name"],
+                "name": item.get("name", ""),
                 "approvals": item.get("approvals", 0.0),
                 "budget": item.get("budget", 0.0),
                 "unit_cost": item.get("unit_cost", math.nan),
                 "n_I": item.get("n_I", 0.0),
                 "n_II": item.get("n_II", 0.0),
                 "n_III": item.get("n_III", 0.0),
+                "condition_counts": item.get("condition_counts", {}),
+                "status_counts": item.get("status_counts", {}),
+                "status_timeline": item.get("status_timeline", {}),
+                "successes": item.get("successes", 0.0),
+                "total_trials": item.get("total_trials", 0.0),
             }
-            for item in metrics
+            for item in merged
         ],
     }
 

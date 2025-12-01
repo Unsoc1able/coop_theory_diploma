@@ -88,6 +88,30 @@ def _phase_counts(record: Mapping[str, Any]) -> Mapping[str, Any]:
     return {}
 
 
+def _normalise_timeline(raw: Mapping[str, Any] | None) -> Mapping[int, Mapping[str, int]]:
+    """Return a cleaned timeline keyed by integer year."""
+
+    if not isinstance(raw, Mapping):
+        return {}
+
+    timeline: dict[int, dict[str, int]] = {}
+    for year, payload in raw.items():
+        try:
+            year_int = int(year)
+        except (TypeError, ValueError):
+            continue
+
+        if not isinstance(payload, Mapping):
+            continue
+
+        timeline[year_int] = {
+            "started": _safe_int(payload.get("started", 0)),
+            "completed": _safe_int(payload.get("completed", 0)),
+        }
+
+    return timeline
+
+
 def _company_from_record(record: Mapping[str, Any]) -> dict:
     counts = _phase_counts(record)
     return {
@@ -104,7 +128,19 @@ def _normalise_company(record: Mapping[str, Any]) -> dict:
         "n_I": _safe_int(record.get("n_I", 0)),
         "n_II": _safe_int(record.get("n_II", 0)),
         "n_III": _safe_int(record.get("n_III", 0)),
+        "phase_counts": dict(_phase_counts(record)),
     }
+    if isinstance(record.get("condition_counts"), Mapping):
+        data["condition_counts"] = dict(record.get("condition_counts", {}))
+    if isinstance(record.get("status_counts"), Mapping):
+        data["status_counts"] = dict(record.get("status_counts", {}))
+    if "successes" in record:
+        data["successes"] = _safe_int(record.get("successes", 0))
+    if "total_trials" in record:
+        data["total_trials"] = _safe_int(record.get("total_trials", 0))
+    timeline = _normalise_timeline(record.get("status_timeline"))
+    if timeline:
+        data["status_timeline"] = timeline
     if not data["name"]:
         raise ValueError("Company records must contain a non-empty name")
     return data
