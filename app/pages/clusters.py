@@ -9,7 +9,7 @@ import math
 from typing import Dict, Iterable, List, Mapping, Sequence, TypedDict
 
 import dash
-from dash import Input, Output, State, callback, dcc, dash_table, html
+from dash import Input, Output, State, callback, dcc, html
 import plotly.express as px
 import numpy as np
 from scipy.stats import pearsonr
@@ -24,6 +24,7 @@ dash.register_page(__name__, path="/clusters", name="Кластеры по сх�
 class WeightSpec(TypedDict):
     field: str
     label: str
+    description: str
     minimum: float
     maximum: float
     step: float
@@ -34,17 +35,28 @@ WEIGHTS: Sequence[WeightSpec] = (
     {
         "field": "w1",
         "label": "Вес косинусного сходства",
+        "description": "Используйте его, если важна схожесть распределения проектов по фазам.",
         "minimum": 0.0,
         "maximum": 1.0,
-        "step": 0.05,
+        "step": 0.01,
         "format": "{:.2f}",
     },
     {
         "field": "w2",
         "label": "Вес Жаккарда",
+        "description": "Отвечает за пересечение нозологий/индикаций в портфелях.",
         "minimum": 0.0,
         "maximum": 1.0,
-        "step": 0.05,
+        "step": 0.01,
+        "format": "{:.2f}",
+    },
+    {
+        "field": "w3",
+        "label": "Вес надежности",
+        "description": "Учитывает динамику и устойчивость результатов по времени.",
+        "minimum": 0.0,
+        "maximum": 1.0,
+        "step": 0.01,
         "format": "{:.2f}",
     },
 )
@@ -78,6 +90,7 @@ def _build_weight_slider(spec: WeightSpec) -> html.Div:
     return html.Div(
         [
             html.Div(spec["label"], className="slider-label"),
+            html.P(spec["description"], className="note small"),
             dcc.Slider(
                 id=slider_id,
                 min=spec["minimum"],
@@ -92,7 +105,15 @@ def _build_weight_slider(spec: WeightSpec) -> html.Div:
 
 
 def _default_weights() -> Dict[str, float]:
-    return {"w1": 0.4, "w2": 0.3, "delta": 0.75, "gamma": 0.85, "min_overlap": 5, "neutral": 0.5}
+    return {
+        "w1": 0.4,
+        "w2": 0.3,
+        "w3": 0.3,
+        "delta": 0.75,
+        "gamma": 0.85,
+        "min_overlap": 5,
+        "neutral": 0.5,
+    }
 
 
 def _hash_seed(name: str) -> int:
@@ -220,9 +241,12 @@ def reliability_similarity_matrix_varlen(
     return S
 
 
-def aggregate_similarity(S1: np.ndarray, S2: np.ndarray, S3: np.ndarray, w1: float, w2: float) -> np.ndarray:
-    w3 = max(0.0, 1.0 - w1 - w2)
-    S = w1 * S1 + w2 * S2 + w3 * S3
+def aggregate_similarity(
+    S1: np.ndarray, S2: np.ndarray, S3: np.ndarray, w1: float, w2: float, w3: float
+) -> np.ndarray:
+    total = max(w1 + w2 + w3, 1e-9)
+    w1_norm, w2_norm, w3_norm = w1 / total, w2 / total, w3 / total
+    S = w1_norm * S1 + w2_norm * S2 + w3_norm * S3
     return np.clip(S, 0.0, 1.0)
 
 
@@ -366,7 +390,14 @@ def _build_similarity_from_metrics(metrics: Sequence[Mapping[str, object]], para
         min_overlap=int(params.get("min_overlap", 5)),
         neutral_similarity=float(params.get("neutral", 0.5)),
     )
-    S_agg = aggregate_similarity(S_cos, S_jac, S_rel, float(params.get("w1", 0.4)), float(params.get("w2", 0.3)))
+    S_agg = aggregate_similarity(
+        S_cos,
+        S_jac,
+        S_rel,
+        float(params.get("w1", 0.4)),
+        float(params.get("w2", 0.3)),
+        float(params.get("w3", 0.3)),
+    )
     return names, S_cos, S_jac, S_rel, S_agg
 
 
@@ -393,23 +424,24 @@ layout = html.Div(
                                             [_build_weight_slider(spec) for spec in WEIGHTS],
                                             className="controls-stack",
                                         ),
+                                        html.P(
+                                            "Веса нормируются на сумму и не могут быть отрицательными.",
+                                            className="note small",
+                                        ),
                                         html.Div(
                                             [
                                                 html.Div(
                                                     [
-                                                        html.Div("Вес надежности (рассчитывается как 1 - w1 - w2)", className="slider-label"),
-                                                        html.Div(id="cluster-w3", className="note"),
-                                                    ],
-                                                    className="slider-card",
-                                                ),
-                                                html.Div(
-                                                    [
                                                         html.Div("Δ (порог связей)", className="slider-label"),
+                                                        html.P(
+                                                            "Чем выше порог, тем более плотными должны быть связи внутри кластера.",
+                                                            className="note small",
+                                                        ),
                                                         dcc.Slider(
                                                             id="cluster-delta",
                                                             min=0.1,
                                                             max=1.2,
-                                                            step=0.05,
+                                                            step=0.01,
                                                             value=_default_weights()["delta"],
                                                             tooltip={"placement": "bottom", "always_visible": True},
                                                         ),
@@ -419,11 +451,15 @@ layout = html.Div(
                                                 html.Div(
                                                     [
                                                         html.Div("γ (порог ветвления)", className="slider-label"),
+                                                        html.P(
+                                                            "Определяет, насколько быстро кластер разрастается при добавлении соседних вершин.",
+                                                            className="note small",
+                                                        ),
                                                         dcc.Slider(
                                                             id="cluster-gamma",
                                                             min=0.5,
                                                             max=1.2,
-                                                            step=0.05,
+                                                            step=0.01,
                                                             value=_default_weights()["gamma"],
                                                             tooltip={"placement": "bottom", "always_visible": True},
                                                         ),
@@ -433,6 +469,10 @@ layout = html.Div(
                                                 html.Div(
                                                     [
                                                         html.Div("Мин. перекрытие рядов", className="slider-label"),
+                                                        html.P(
+                                                            "Минимальная длина перекрытия временных рядов для расчета корреляции.",
+                                                            className="note small",
+                                                        ),
                                                         dcc.Slider(
                                                             id="cluster-min-overlap",
                                                             min=2,
@@ -447,11 +487,15 @@ layout = html.Div(
                                                 html.Div(
                                                     [
                                                         html.Div("Нейтральное сходство", className="slider-label"),
+                                                        html.P(
+                                                            "Подставляется, когда перекрытие рядов слишком маленькое; влияет на веса сходства по надёжности.",
+                                                            className="note small",
+                                                        ),
                                                         dcc.Slider(
                                                             id="cluster-neutral",
                                                             min=0.0,
                                                             max=1.0,
-                                                            step=0.05,
+                                                            step=0.01,
                                                             value=_default_weights()["neutral"],
                                                             tooltip={"placement": "bottom", "always_visible": True},
                                                         ),
@@ -494,29 +538,15 @@ layout = html.Div(
                             label="Результаты и визуализация",
                             value="results",
                             children=[
-                                html.Div(
-                                    [
-                                        html.Div(id="cluster-summary", className="coop-summary"),
-                                        html.Div(id="cluster-list", className="note", style={"marginTop": "12px"}),
-                                        dash_table.DataTable(
-                                            id="cluster-pairs",
-                                            columns=[
-                                                {"name": "Пара", "id": "pair"},
-                                                {"name": "σ_ij", "id": "sigma"},
-                                                {"name": "Косинус", "id": "cosine"},
-                                                {"name": "Жаккард", "id": "jaccard"},
-                                                {"name": "Надежность", "id": "reliability"},
-                                            ],
-                                            style_cell={"fontSize": 13},
-                                            style_header={"fontWeight": "600", "color": "#111827"},
-                                            style_table={"marginTop": "12px"},
-                                            page_size=15,
-                                        ),
-                                        dcc.Graph(id="cluster-graph", style={"marginTop": "18px"}),
                                         html.Div(
                                             [
-                                                dcc.Graph(id="cluster-heat-cos"),
-                                                dcc.Graph(id="cluster-heat-jac"),
+                                                html.Div(id="cluster-summary", className="coop-summary"),
+                                                html.Div(id="cluster-list", className="note", style={"marginTop": "12px"}),
+                                                dcc.Graph(id="cluster-graph", style={"marginTop": "18px"}),
+                                                html.Div(
+                                                    [
+                                                        dcc.Graph(id="cluster-heat-cos"),
+                                                        dcc.Graph(id="cluster-heat-jac"),
                                                 dcc.Graph(id="cluster-heat-rel"),
                                                 dcc.Graph(id="cluster-heat-agg"),
                                             ],
@@ -577,29 +607,22 @@ def sync_weight_store(*args):
         Output("cluster-gamma", "value"),
         Output("cluster-min-overlap", "value"),
         Output("cluster-neutral", "value"),
-        Output("cluster-w3", "children"),
     ],
     Input("cluster-weights-store", "data"),
 )
 def hydrate_sliders(data):
     data = data or _default_weights()
-    w1 = data.get("w1", 0.4)
-    w2 = data.get("w2", 0.3)
-    w3 = max(0.0, 1.0 - w1 - w2)
-    label_w3 = f"Текущий вес = {w3:.2f}"
     return [data.get(spec["field"], spec["minimum"]) for spec in WEIGHTS] + [
         data.get("delta", _default_weights()["delta"]),
         data.get("gamma", _default_weights()["gamma"]),
         data.get("min_overlap", _default_weights()["min_overlap"]),
         data.get("neutral", _default_weights()["neutral"]),
-        label_w3,
     ]
 
 
 @callback(
     Output("cluster-summary", "children"),
     Output("cluster-list", "children"),
-    Output("cluster-pairs", "data"),
     Output("cluster-graph", "figure"),
     Output("cluster-heat-cos", "figure"),
     Output("cluster-heat-jac", "figure"),
@@ -637,7 +660,14 @@ def update_clusters(companies, params, weights):
             min_overlap=int(weights.get("min_overlap", 5)),
             neutral_similarity=float(weights.get("neutral", 0.5)),
         )
-        S_agg = aggregate_similarity(S_cos, S_jac, S_rel, float(weights.get("w1", 0.4)), float(weights.get("w2", 0.3)))
+        S_agg = aggregate_similarity(
+            S_cos,
+            S_jac,
+            S_rel,
+            float(weights.get("w1", 0.4)),
+            float(weights.get("w2", 0.3)),
+            float(weights.get("w3", 0.3)),
+        )
         metrics = [
             {"name": n, "approvals": float("nan"), "budget": float("nan"), "n_I": 0, "n_II": 0, "n_III": 0}
             for n in names
@@ -650,7 +680,6 @@ def update_clusters(companies, params, weights):
         return (
             html.Span("Кластеры не найдены.", className="warn"),
             html.Ul([html.Li("Нет доступных компаний")]),
-            [],
             empty_fig,
             blank,
             blank,
@@ -687,26 +716,18 @@ def update_clusters(companies, params, weights):
     fig.update_layout(template="plotly_white", height=520, margin=dict(l=20, r=20, t=50, b=50))
 
     cluster_items = [html.Li(", ".join(names[idx] for idx in sorted(cluster))) for cluster in clusters]
+    w1 = float(weights.get("w1", 0.4))
+    w2 = float(weights.get("w2", 0.3))
+    w3 = float(weights.get("w3", 0.3))
+    total = max(w1 + w2 + w3, 1e-9)
+    w1n, w2n, w3n = w1 / total, w2 / total, w3 / total
     summary = html.Span(
         [
             f"Кластеров: {len(clusters)}. ",
             f"Δ={weights.get('delta', 0.75)}, γ={weights.get('gamma', 0.85)}, ",
-            f"веса (w1={weights.get('w1', 0.4):.2f}, w2={weights.get('w2', 0.3):.2f}, w3={max(0.0, 1-weights.get('w1',0)-weights.get('w2',0)):.2f}).",
+            f"нормированные веса (w1={w1n:.2f}, w2={w2n:.2f}, w3={w3n:.2f}).",
         ]
     )
-
-    pair_rows: List[Dict[str, object]] = []
-    for i in range(len(names)):
-        for j in range(i + 1, len(names)):
-            pair_rows.append(
-                {
-                    "pair": f"{names[i]} / {names[j]}",
-                    "sigma": round(float(S_agg[i, j]), 3),
-                    "cosine": round(float(S_cos[i, j]), 3),
-                    "jaccard": round(float(S_jac[i, j]), 3),
-                    "reliability": round(float(S_rel[i, j]), 3),
-                }
-            )
 
     heat_cos = px.imshow(np.round(S_cos, 2), text_auto=True, aspect="auto", title="Cosine similarity S_cos")
     heat_jac = px.imshow(np.round(S_jac, 2), text_auto=True, aspect="auto", title="Jaccard similarity S_jac")
@@ -716,7 +737,7 @@ def update_clusters(companies, params, weights):
         fig_heat.update_xaxes(title="Игрок j", tickmode="linear")
         fig_heat.update_yaxes(title="Игрок i", tickmode="linear")
 
-    return summary, html.Ul(cluster_items), pair_rows, fig, heat_cos, heat_jac, heat_rel, heat_agg
+    return summary, html.Ul(cluster_items), fig, heat_cos, heat_jac, heat_rel, heat_agg
 
 
 @callback(
