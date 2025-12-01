@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Dict, Iterable, Iterator, List, Sequence
+from datetime import datetime
+from typing import Dict, Iterable, Iterator, List, Mapping, Sequence
+
+from dateutil import parser as date_parser
 
 from .base import BaseParser
 from .clinical_trials_api import ClinicalTrialsClient
@@ -80,11 +83,30 @@ def normalise_phase(value: str) -> Sequence[str]:
     return (value,)
 
 
-def aggregate_trials(studies: Iterable[Dict[str, List[str]]]) -> Dict[str, Counter[str]]:
-    """Aggregate per-phase and per-status statistics for the studies list."""
+def _first_value(record: Mapping[str, List[str]], field: str) -> str:
+    values = record.get(field, [])
+    return values[0] if values else ""
+
+
+def _parse_year(raw_value: str) -> int | None:
+    """Return a best-effort year extracted from a date-ish string."""
+
+    if not raw_value:
+        return None
+    try:
+        return date_parser.parse(raw_value, default=datetime(1900, 1, 1)).year
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
+def aggregate_trials(studies: Iterable[Dict[str, List[str]]]) -> Dict[str, object]:
+    """Aggregate per-phase/status statistics + history for the studies list."""
 
     phase_counter: Counter[str] = Counter()
     status_counter: Counter[str] = Counter()
+    condition_counter: Counter[str] = Counter()
+    timeline: Dict[int, Dict[str, int]] = {}
+    successes = 0
 
     for study in studies:
         phase_values = study.get("Phase", [])
@@ -92,13 +114,30 @@ def aggregate_trials(studies: Iterable[Dict[str, List[str]]]) -> Dict[str, Count
             for label in normalise_phase(phase_values[0]):
                 phase_counter[label] += 1
 
-        status_values = study.get("OverallStatus", [])
-        if status_values:
-            status_counter[status_values[0]] += 1
+        status = _first_value(study, "OverallStatus")
+        if status:
+            status_counter[status] += 1
+            if status.lower().startswith("completed"):
+                successes += 1
+
+        for condition in study.get("Condition", []) or []:
+            if condition:
+                condition_counter[condition] += 1
+
+        start_year = _parse_year(_first_value(study, "StartDate"))
+        completion_year = _parse_year(_first_value(study, "PrimaryCompletionDate"))
+
+        if start_year:
+            timeline.setdefault(start_year, {"started": 0, "completed": 0})["started"] += 1
+        if completion_year:
+            timeline.setdefault(completion_year, {"started": 0, "completed": 0})["completed"] += 1
 
     return {
         "phase_counts": phase_counter,
         "status_counts": status_counter,
+        "condition_counts": condition_counter,
+        "status_timeline": {year: timeline[year] for year in sorted(timeline)},
+        "successes": successes,
     }
 
 
@@ -142,11 +181,32 @@ class _ClinicalTrialsBaseParser(BaseParser):
         studies: List[Dict[str, List[str]]],
     ) -> Dict[str, object]:
         aggregated = aggregate_trials(studies)
+        normalized_studies = []
+        for study in studies:
+            normalized_studies.append(
+                {
+                    "id": _first_value(study, "NCTId"),
+                    "lead_sponsor": _first_value(study, "LeadSponsorName"),
+                    "collaborators": study.get("CollaboratorName", []) or [],
+                    "phase": list(normalise_phase(_first_value(study, "Phase"))),
+                    "status": _first_value(study, "OverallStatus"),
+                    "study_type": _first_value(study, "StudyType"),
+                    "conditions": study.get("Condition", []) or [],
+                    "enrollment": _first_value(study, "EnrollmentCount"),
+                    "start_date": _first_value(study, "StartDate"),
+                    "primary_completion_date": _first_value(study, "PrimaryCompletionDate"),
+                    "last_update_post_date": _first_value(study, "LastUpdatePostDate"),
+                }
+            )
         return {
             "expr": expr,
             "total_trials": len(studies),
             "phase_counts": dict(aggregated["phase_counts"]),
             "status_counts": dict(aggregated["status_counts"]),
+            "condition_counts": dict(aggregated["condition_counts"]),
+            "status_timeline": aggregated["status_timeline"],
+            "successes": aggregated["successes"],
+            "studies": normalized_studies,
         }
 
 
