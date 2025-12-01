@@ -46,20 +46,41 @@ def fake_study_chunks() -> Dict[str, List[StudyFieldsResponse]]:
         status: str,
         sponsor: str,
         name_suffix: str,
+        condition: str = "",
+        start: str | None = None,
+        completion: str | None = None,
     ) -> Dict[str, List[str]]:
         return {
             "NCTId": [f"NCT-{sponsor}-{name_suffix}"],
             "LeadSponsorName": [sponsor],
             "Phase": [phase],
             "OverallStatus": [status],
+            "Condition": [condition] if condition else [],
+            "StartDate": [start] if start else [],
+            "PrimaryCompletionDate": [completion] if completion else [],
         }
 
     return {
         'AREA[LeadSponsorName]"Pfizer"': [
             StudyFieldsResponse(
                 studies=[
-                    make_study(phase="Phase 3", status="Recruiting", sponsor="Pfizer", name_suffix="01"),
-                    make_study(phase="Phase 2", status="Completed", sponsor="Pfizer", name_suffix="02"),
+                    make_study(
+                        phase="Phase 3",
+                        status="Recruiting",
+                        sponsor="Pfizer",
+                        name_suffix="01",
+                        condition="Oncology",
+                        start="2020-01-01",
+                    ),
+                    make_study(
+                        phase="Phase 2",
+                        status="Completed",
+                        sponsor="Pfizer",
+                        name_suffix="02",
+                        condition="Metabolic",
+                        start="2018-01-01",
+                        completion="2020-06-01",
+                    ),
                 ],
                 total_studies=2,
                 next_rank=None,
@@ -68,7 +89,14 @@ def fake_study_chunks() -> Dict[str, List[StudyFieldsResponse]]:
         'AREA[LeadSponsorName]"BIOCAD"': [
             StudyFieldsResponse(
                 studies=[
-                    make_study(phase="Phase 1", status="Recruiting", sponsor="BIOCAD", name_suffix="11"),
+                    make_study(
+                        phase="Phase 1",
+                        status="Recruiting",
+                        sponsor="BIOCAD",
+                        name_suffix="11",
+                        condition="Oncology",
+                        start="2021-02-01",
+                    ),
                 ],
                 total_studies=1,
                 next_rank=None,
@@ -102,11 +130,20 @@ def test_clinical_trials_by_sponsor_parser_aggregates_trials(fake_study_chunks: 
     assert pfizer["total_trials"] == 2
     assert pfizer["phase_counts"] == {"Phase 3": 1, "Phase 2": 1}
     assert pfizer["status_counts"] == {"Recruiting": 1, "Completed": 1}
+    assert pfizer["condition_counts"] == {"Oncology": 1, "Metabolic": 1}
+    assert pfizer["successes"] == 1
+    assert pfizer["status_timeline"] == {2018: {"started": 1, "completed": 0}, 2020: {"started": 1, "completed": 1}}
+    assert len(pfizer["studies"]) == 2
+    assert pfizer["studies"][0]["id"] == "NCT-Pfizer-01"
+    assert pfizer["studies"][1]["status"] == "Completed"
 
     assert biocad["name"] == "BIOCAD"
     assert biocad["total_trials"] == 1
     assert biocad["phase_counts"] == {"Phase 1": 1}
     assert biocad["status_counts"] == {"Recruiting": 1}
+    assert biocad["condition_counts"] == {"Oncology": 1}
+    assert biocad["successes"] == 0
+    assert biocad["status_timeline"] == {2021: {"started": 1, "completed": 0}}
 
     assert len(client.calls) == 2
     assert client.calls[0]["max_rank"] == 10
