@@ -1,11 +1,11 @@
-"""Кластеризация портфелей по похожим метрикам."""
+"""Кластеризация портфелей по похожим метрикам.
+"""
 
 from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Sequence
+from typing import Dict, Iterable, List, Mapping, Sequence, TypedDict
 
 import dash
 from dash import Input, Output, State, callback, dcc, dash_table, html
@@ -18,8 +18,7 @@ from ..logic import compute_company_metrics
 dash.register_page(__name__, path="/clusters", name="Кластеры по схожести")
 
 
-@dataclass
-class Threshold:
+class ThresholdSpec(TypedDict):
     field: str
     label: str
     minimum: float
@@ -28,31 +27,31 @@ class Threshold:
     format: str
 
 
-THRESHOLDS: Sequence[Threshold] = (
-    Threshold(
-        field="approvals_tol",
-        label="Допустимая разница по одобрениям",
-        minimum=0.0,
-        maximum=8.0,
-        step=0.1,
-        format="{:.1f}",
-    ),
-    Threshold(
-        field="budget_tol",
-        label="Допустимая разница по бюджетам (млн $)",
-        minimum=0,
-        maximum=600,
-        step=10,
-        format="{:.0f}",
-    ),
-    Threshold(
-        field="unit_cost_tol",
-        label="Разница по стоимости одного одобрения (млн $)",
-        minimum=0,
-        maximum=400,
-        step=10,
-        format="{:.0f}",
-    ),
+THRESHOLDS: Sequence[ThresholdSpec] = (
+    {
+        "field": "approvals_tol",
+        "label": "Допустимая разница по одобрениям",
+        "minimum": 0.0,
+        "maximum": 8.0,
+        "step": 0.1,
+        "format": "{:.1f}",
+    },
+    {
+        "field": "budget_tol",
+        "label": "Допустимая разница по бюджетам (млн $)",
+        "minimum": 0,
+        "maximum": 600,
+        "step": 10,
+        "format": "{:.0f}",
+    },
+    {
+        "field": "unit_cost_tol",
+        "label": "Разница по стоимости одного одобрения (млн $)",
+        "minimum": 0,
+        "maximum": 400,
+        "step": 10,
+        "format": "{:.0f}",
+    },
 )
 
 
@@ -73,20 +72,20 @@ def _filter_small_companies(companies: Iterable[Mapping[str, object]] | None) ->
     return filtered
 
 
-def _build_slider(threshold: Threshold) -> html.Div:
-    slider_id = f"cluster-{threshold.field}"
+def _build_slider(threshold: ThresholdSpec) -> html.Div:
+    slider_id = f"cluster-{threshold['field']}"
     marks = {
-        threshold.minimum: threshold.format.format(threshold.minimum),
-        threshold.maximum: threshold.format.format(threshold.maximum),
+        threshold["minimum"]: threshold["format"].format(threshold["minimum"]),
+        threshold["maximum"]: threshold["format"].format(threshold["maximum"]),
     }
     return html.Div(
         [
-            html.Div(threshold.label, className="slider-label"),
+            html.Div(threshold["label"], className="slider-label"),
             dcc.Slider(
                 id=slider_id,
-                min=threshold.minimum,
-                max=threshold.maximum,
-                step=threshold.step,
+                min=threshold["minimum"],
+                max=threshold["maximum"],
+                step=threshold["step"],
                 marks=marks,
                 tooltip={"placement": "bottom", "always_visible": True},
             ),
@@ -98,8 +97,8 @@ def _build_slider(threshold: Threshold) -> html.Div:
 def _default_thresholds() -> Dict[str, float]:
     values: Dict[str, float] = {}
     for threshold in THRESHOLDS:
-        midpoint = (threshold.minimum + threshold.maximum) / 2
-        values[threshold.field] = round(midpoint, 2)
+        midpoint = (threshold["minimum"] + threshold["maximum"]) / 2
+        values[threshold["field"]] = round(midpoint, 2)
     return values
 
 
@@ -273,7 +272,7 @@ layout = html.Div(
 
 @callback(
     Output("cluster-thresholds-store", "data"),
-    [Input(f"cluster-{threshold.field}", "value") for threshold in THRESHOLDS]
+    [Input(f"cluster-{threshold['field']}", "value") for threshold in THRESHOLDS]
     + [Input("btn-reset-thresholds", "n_clicks")],
     State("cluster-thresholds-store", "data"),
 )
@@ -288,17 +287,17 @@ def sync_threshold_store(*args):
     data = current.copy() if isinstance(current, dict) else {}
     for threshold, value in zip(THRESHOLDS, values):
         if value is not None:
-            data[threshold.field] = float(value)
+            data[threshold["field"]] = float(value)
     return data
 
 
 @callback(
-    [Output(f"cluster-{threshold.field}", "value") for threshold in THRESHOLDS],
+    [Output(f"cluster-{threshold['field']}", "value") for threshold in THRESHOLDS],
     Input("cluster-thresholds-store", "data"),
 )
 def hydrate_sliders(data):
     data = data or _default_thresholds()
-    return [data.get(threshold.field, threshold.minimum) for threshold in THRESHOLDS]
+    return [data.get(threshold["field"], threshold["minimum"]) for threshold in THRESHOLDS]
 
 
 @callback(
