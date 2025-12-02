@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 from typing import Dict, Iterable, List, Mapping, Sequence, TypedDict
 
@@ -35,7 +34,7 @@ WEIGHTS: Sequence[WeightSpec] = (
     {
         "field": "w1",
         "label": "Вес косинусного сходства",
-        "description": "Используйте его, если важна схожесть распределения проектов по фазам.",
+        "description": "Отвечает за вес схожести распределения проектов по фазам (в дальнейшем типам исследований).",
         "minimum": 0.0,
         "maximum": 1.0,
         "step": 0.01,
@@ -44,7 +43,7 @@ WEIGHTS: Sequence[WeightSpec] = (
     {
         "field": "w2",
         "label": "Вес Жаккарда",
-        "description": "Отвечает за пересечение нозологий/индикаций в портфелях.",
+        "description": "Отвечает за вес меры Жаккарда — пересечения типов исследований в портфелях.",
         "minimum": 0.0,
         "maximum": 1.0,
         "step": 0.01,
@@ -97,6 +96,27 @@ def _build_weight_slider(spec: WeightSpec) -> html.Div:
                 max=spec["maximum"],
                 step=spec["step"],
                 marks=marks,
+                tooltip={"placement": "bottom", "always_visible": True},
+            ),
+        ],
+        className="slider-card",
+    )
+
+
+def _build_threshold_slider(
+    slider_id: str, label: str, description: str, *, minimum: float, maximum: float, step: float, value: float
+) -> html.Div:
+    return html.Div(
+        [
+            html.Div(label, className="slider-label"),
+            html.P(description, className="note small"),
+            dcc.Slider(
+                id=slider_id,
+                min=minimum,
+                max=maximum,
+                step=step,
+                value=value,
+                marks={},
                 tooltip={"placement": "bottom", "always_visible": True},
             ),
         ],
@@ -404,7 +424,6 @@ def _build_similarity_from_metrics(metrics: Sequence[Mapping[str, object]], para
 layout = html.Div(
     [
         dcc.Store(id="cluster-weights-store", data=_default_weights()),
-        dcc.Download(id="cluster-download"),
         html.Div(
             [
                 html.H2("DRAC-кластеры по схожести портфелей"),
@@ -417,7 +436,7 @@ layout = html.Div(
                     value="weights",
                     children=[
                         dcc.Tab(
-                            label="Параметры", value="weights", children=[
+                            label="Параметры и распределение", value="weights", children=[
                                 html.Div(
                                     [
                                         html.Div(
@@ -430,77 +449,41 @@ layout = html.Div(
                                         ),
                                         html.Div(
                                             [
-                                                html.Div(
-                                                    [
-                                                        html.Div("Δ (порог связей)", className="slider-label"),
-                                                        html.P(
-                                                            "Чем выше порог, тем более плотными должны быть связи внутри кластера.",
-                                                            className="note small",
-                                                        ),
-                                                        dcc.Slider(
-                                                            id="cluster-delta",
-                                                            min=0.1,
-                                                            max=1.2,
-                                                            step=0.01,
-                                                            value=_default_weights()["delta"],
-                                                            tooltip={"placement": "bottom", "always_visible": True},
-                                                        ),
-                                                    ],
-                                                    className="slider-card",
+                                                _build_threshold_slider(
+                                                    "cluster-delta",
+                                                    "Δ (порог связей)",
+                                                    "Чем выше порог, тем более плотными должны быть связи внутри кластера.",
+                                                    minimum=0.1,
+                                                    maximum=1.2,
+                                                    step=0.01,
+                                                    value=_default_weights()["delta"],
                                                 ),
-                                                html.Div(
-                                                    [
-                                                        html.Div("γ (порог ветвления)", className="slider-label"),
-                                                        html.P(
-                                                            "Определяет, насколько быстро кластер разрастается при добавлении соседних вершин.",
-                                                            className="note small",
-                                                        ),
-                                                        dcc.Slider(
-                                                            id="cluster-gamma",
-                                                            min=0.5,
-                                                            max=1.2,
-                                                            step=0.01,
-                                                            value=_default_weights()["gamma"],
-                                                            tooltip={"placement": "bottom", "always_visible": True},
-                                                        ),
-                                                    ],
-                                                    className="slider-card",
+                                                _build_threshold_slider(
+                                                    "cluster-gamma",
+                                                    "γ (порог ветвления)",
+                                                    "Определяет, насколько быстро кластер разрастается при добавлении соседних вершин.",
+                                                    minimum=0.5,
+                                                    maximum=1.2,
+                                                    step=0.01,
+                                                    value=_default_weights()["gamma"],
                                                 ),
-                                                html.Div(
-                                                    [
-                                                        html.Div("Мин. перекрытие рядов", className="slider-label"),
-                                                        html.P(
-                                                            "Минимальная длина перекрытия временных рядов для расчета корреляции.",
-                                                            className="note small",
-                                                        ),
-                                                        dcc.Slider(
-                                                            id="cluster-min-overlap",
-                                                            min=2,
-                                                            max=20,
-                                                            step=1,
-                                                            value=_default_weights()["min_overlap"],
-                                                            tooltip={"placement": "bottom", "always_visible": True},
-                                                        ),
-                                                    ],
-                                                    className="slider-card",
+                                                _build_threshold_slider(
+                                                    "cluster-min-overlap",
+                                                    "Мин. перекрытие рядов",
+                                                    "Минимальная длина перекрытия временных рядов для расчета корреляции.",
+                                                    minimum=2,
+                                                    maximum=20,
+                                                    step=1,
+                                                    value=_default_weights()["min_overlap"],
                                                 ),
-                                                html.Div(
-                                                    [
-                                                        html.Div("Нейтральное сходство", className="slider-label"),
-                                                        html.P(
-                                                            "Подставляется, когда перекрытие рядов слишком маленькое; влияет на веса сходства по надёжности.",
-                                                            className="note small",
-                                                        ),
-                                                        dcc.Slider(
-                                                            id="cluster-neutral",
-                                                            min=0.0,
-                                                            max=1.0,
-                                                            step=0.01,
-                                                            value=_default_weights()["neutral"],
-                                                            tooltip={"placement": "bottom", "always_visible": True},
-                                                        ),
-                                                    ],
-                                                    className="slider-card",
+                                                _build_threshold_slider(
+                                                    "cluster-neutral",
+                                                    "Нейтральное сходство",
+                                                    "Подставляется, когда перекрытие рядов слишком маленькое; влияет на веса сходства по надёжности.",
+                                                    minimum=0.0,
+                                                    maximum=1.0,
+                                                    step=0.01,
+                                                    value=_default_weights()["neutral"],
                                                 ),
                                             ],
                                             className="controls-stack",
@@ -514,12 +497,6 @@ layout = html.Div(
                                                     className="nav-link",
                                                     n_clicks=0,
                                                 ),
-                                                html.Button(
-                                                    "Выгрузить параметры для парсера",
-                                                    id="btn-download-thresholds",
-                                                    className="nav-link",
-                                                    n_clicks=0,
-                                                ),
                                             ],
                                             className="flex-row",
                                             style={"marginTop": "12px", "gap": "12px", "flexWrap": "wrap"},
@@ -529,29 +506,30 @@ layout = html.Div(
                                             className="note small",
                                             style={"marginTop": "6px"},
                                         ),
+                                        html.Div(
+                                            [
+                                                html.Div(id="cluster-summary", className="coop-summary"),
+                                                html.Div(id="cluster-list", className="note", style={"marginTop": "12px"}),
+                                                dcc.Graph(id="cluster-graph", style={"marginTop": "18px"}),
+                                            ],
+                                            className="section-card",
+                                            style={"marginTop": "12px"},
+                                        ),
                                     ],
                                     className="section-card",
                                 ),
                             ],
                         ),
                         dcc.Tab(
-                            label="Результаты и визуализация",
+                            label="Матрицы сходства",
                             value="results",
                             children=[
-                                        html.Div(
-                                            [
-                                                html.Div(id="cluster-summary", className="coop-summary"),
-                                                html.Div(id="cluster-list", className="note", style={"marginTop": "12px"}),
-                                                dcc.Graph(id="cluster-graph", style={"marginTop": "18px"}),
-                                                html.Div(
-                                                    [
-                                                        dcc.Graph(id="cluster-heat-cos"),
-                                                        dcc.Graph(id="cluster-heat-jac"),
-                                                dcc.Graph(id="cluster-heat-rel"),
-                                                dcc.Graph(id="cluster-heat-agg"),
-                                            ],
-                                            className="section-card",
-                                        ),
+                                html.Div(
+                                    [
+                                        dcc.Graph(id="cluster-heat-cos"),
+                                        dcc.Graph(id="cluster-heat-jac"),
+                                        dcc.Graph(id="cluster-heat-rel"),
+                                        dcc.Graph(id="cluster-heat-agg"),
                                     ],
                                     className="section-card",
                                 ),
@@ -710,7 +688,7 @@ def update_clusters(companies, params, weights):
         y="y",
         color="cluster",
         hover_name="name",
-        title="2D MDS по σ_ij",
+        title="Распределение компаний по кластерам в главных компонентах матрицы сходства",
         labels={"x": "Компонента 1", "y": "Компонента 2"},
     )
     fig.update_layout(template="plotly_white", height=520, margin=dict(l=20, r=20, t=50, b=50))
@@ -729,58 +707,12 @@ def update_clusters(companies, params, weights):
         ]
     )
 
-    heat_cos = px.imshow(np.round(S_cos, 2), text_auto=True, aspect="auto", title="Cosine similarity S_cos")
-    heat_jac = px.imshow(np.round(S_jac, 2), text_auto=True, aspect="auto", title="Jaccard similarity S_jac")
-    heat_rel = px.imshow(np.round(S_rel, 2), text_auto=True, aspect="auto", title="Reliability similarity S_rel")
-    heat_agg = px.imshow(np.round(S_agg, 2), text_auto=True, aspect="auto", title="Aggregated similarity σ_ij")
+    heat_cos = px.imshow(np.round(S_cos, 2), text_auto=True, aspect="auto", title="Косинусное сходство S_cos")
+    heat_jac = px.imshow(np.round(S_jac, 2), text_auto=True, aspect="auto", title="Сходство Жаккара S_jac")
+    heat_rel = px.imshow(np.round(S_rel, 2), text_auto=True, aspect="auto", title="Сходство по надёжности S_rel")
+    heat_agg = px.imshow(np.round(S_agg, 2), text_auto=True, aspect="auto", title="Агрегированное сходство σ_ij")
     for fig_heat in (heat_cos, heat_jac, heat_rel, heat_agg):
         fig_heat.update_xaxes(title="Игрок j", tickmode="linear")
         fig_heat.update_yaxes(title="Игрок i", tickmode="linear")
 
     return summary, html.Ul(cluster_items), fig, heat_cos, heat_jac, heat_rel, heat_agg
-
-
-@callback(
-    Output("cluster-download", "data"),
-    Input("btn-download-thresholds", "n_clicks"),
-    State("cluster-weights-store", "data"),
-    State("companies-store", "data"),
-    State("parameters-store", "data"),
-    prevent_initial_call=True,
-)
-def download_thresholds(n_clicks, weights, companies, params):
-    weights = weights or _default_weights()
-    companies = _filter_small_companies(companies)
-    params = params or {}
-    metrics = compute_company_metrics(companies, params) if companies else []
-    merged: List[Dict[str, object]] = []
-    metrics_by_name = {m["name"]: m for m in metrics}
-    for company in companies:
-        combined = dict(company)
-        if combined.get("name") in metrics_by_name:
-            combined.update(metrics_by_name[combined["name"]])
-        merged.append(combined)
-
-    payload = {
-        "weights": weights,
-        "companies": [
-            {
-                "name": item.get("name", ""),
-                "approvals": item.get("approvals", 0.0),
-                "budget": item.get("budget", 0.0),
-                "unit_cost": item.get("unit_cost", math.nan),
-                "n_I": item.get("n_I", 0.0),
-                "n_II": item.get("n_II", 0.0),
-                "n_III": item.get("n_III", 0.0),
-                "condition_counts": item.get("condition_counts", {}),
-                "status_counts": item.get("status_counts", {}),
-                "status_timeline": item.get("status_timeline", {}),
-                "successes": item.get("successes", 0.0),
-                "total_trials": item.get("total_trials", 0.0),
-            }
-            for item in merged
-        ],
-    }
-
-    content = json.dumps(payload, ensure_ascii=False, indent=2)
-    return dict(content=content, filename="cluster_drac_params.json")
